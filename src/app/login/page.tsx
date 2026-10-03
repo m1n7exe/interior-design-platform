@@ -1,3 +1,4 @@
+
 "use client";
 
 import { FormEvent, useState } from "react";
@@ -18,79 +19,148 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+    <main className="min-h-screen bg-[#f5f3ef] p-4 md:p-6">
+      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-7xl overflow-hidden rounded-[2rem] bg-white shadow-2xl">
 
-          <div className="mb-8">
-            <h1 className="text-3xl font-semibold text-gray-900">
-              Welcome back
-            </h1>
+        {/* Visual Panel */}
+        <div className="relative hidden w-1/2 overflow-hidden lg:block">
+          <video
+            className="absolute inset-0 h-full w-full object-cover"
+            src="/interior-hero.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+          />
 
-            <p className="mt-2 text-sm text-gray-500">
-              Log in to your account.
+          <div className="absolute inset-0 bg-black/40" />
+
+          <Link
+            href="/"
+            className="absolute left-8 top-8 z-10 text-xl font-semibold tracking-tight text-white"
+          >
+            Interior.
+          </Link>
+
+          <div className="absolute bottom-10 left-8 right-8 z-10 text-white">
+            <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-white/60">
+              Interior Design Platform
+            </p>
+
+            <h2 className="max-w-lg text-4xl font-medium leading-tight tracking-[-0.03em] xl:text-5xl">
+              Inspiration is
+              <br />
+              just the beginning.
+            </h2>
+
+            <p className="mt-5 max-w-md text-sm leading-6 text-white/70">
+              Explore beautiful spaces and connect with designers who can
+              transform your ideas into reality.
             </p>
           </div>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Login Panel */}
+        <div className="flex w-full items-center justify-center px-6 py-10 md:px-12 lg:w-1/2 lg:px-16">
+          <div className="w-full max-w-md">
 
-            <div>
-              <label
-                htmlFor="email"
-                className="mb-1 block text-sm font-medium text-gray-700"
-              >
-                Email
-              </label>
-
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="john@example.com"
-                required
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 outline-none transition focus:border-black"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="mb-1 block text-sm font-medium text-gray-700"
-              >
-                Password
-              </label>
-
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Enter your password"
-                required
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 outline-none transition focus:border-black"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-black px-4 py-3 font-medium text-white transition hover:bg-gray-800"
-            >
-              Log In
-            </button>
-
-          </form>
-
-          <p className="mt-6 text-center text-sm text-gray-500">
-            Don't have an account?{" "}
+            {/* Mobile Logo */}
             <Link
-              href="/signup"
-              className="font-medium text-gray-900 hover:underline"
+              href="/"
+              className="mb-10 block text-xl font-semibold tracking-tight text-[#1c1c1a] lg:hidden"
             >
-              Create account
+              Interior.
             </Link>
-          </p>
 
+            {/* Heading */}
+            <div className="mb-8">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-black/40">
+                Welcome back
+              </p>
+
+              <h1 className="text-4xl font-medium tracking-[-0.03em] text-[#1c1c1a]">
+                Welcome back.
+              </h1>
+
+              <p className="mt-3 text-sm leading-6 text-black/50">
+                Log in to continue exploring inspiring spaces and designers.
+              </p>
+            </div>
+
+            {/* Login Form */}
+            <form onSubmit={handleSubmit} className="space-y-5">
+
+              {/* Email */}
+              <div>
+                <label
+                  htmlFor="email"
+                  className="mb-1.5 block text-sm font-medium text-[#1c1c1a]"
+                >
+                  Email
+                </label>
+
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="john@example.com"
+                  required
+                  autoComplete="email"
+                  className="w-full rounded-xl border border-black/10 bg-[#faf9f7] px-4 py-3.5 text-sm text-[#1c1c1a] outline-none transition placeholder:text-black/30 focus:border-black/40 focus:bg-white"
+                />
+              </div>
+
+              {/* Password */}
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label
+                    htmlFor="password"
+                    className="block text-sm font-medium text-[#1c1c1a]"
+                  >
+                    Password
+                  </label>
+
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-black/40 transition hover:text-black"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Enter your password"
+                  required
+                  autoComplete="current-password"
+                  className="w-full rounded-xl border border-black/10 bg-[#faf9f7] px-4 py-3.5 text-sm text-[#1c1c1a] outline-none transition placeholder:text-black/30 focus:border-black/40 focus:bg-white"
+                />
+              </div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                className="w-full rounded-xl bg-[#1c1c1a] px-4 py-3.5 text-sm font-medium text-white transition duration-300 hover:-translate-y-0.5 hover:bg-black"
+              >
+                Log In →
+              </button>
+            </form>
+
+            {/* Signup Link */}
+            <p className="mt-7 text-center text-sm text-black/45">
+              Don't have an account?{" "}
+              <Link
+                href="/signup"
+                className="font-medium text-[#1c1c1a] transition hover:opacity-60"
+              >
+                Create account
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </main>
