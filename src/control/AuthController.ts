@@ -1,33 +1,22 @@
-import { createClient } from "@/lib/supabase/client";
+import { User } from "@/entity/User";
+import { Customer } from "@/entity/Customer";
+import { InteriorDesigner } from "@/entity/InteriorDesigner";
 
 export class AuthController {
-  private supabase = createClient();
-
   public async registerCustomer(
     name: string,
     email: string,
     password: string
   ) {
-    const { data, error } = await this.supabase.auth.signUp({
+    const { data } = await Customer.register(
+      name,
       email,
-      password,
-      options: {
-        data: {
-          name,
-          role: "CUSTOMER",
-        },
-      },
-    });
+      password
+    );
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    if (!data.user) {
-      throw new Error("User account could not be created.");
-    }
-
-    return data.user;
+    return data.user
+      ? new Customer(data.user.id, name, email)
+      : null;
   }
 
   public async registerInteriorDesigner(
@@ -36,51 +25,30 @@ export class AuthController {
     password: string,
     companyName: string
   ) {
-    const { data, error } = await this.supabase.auth.signUp({
+    const { data } = await InteriorDesigner.register(
+      name,
       email,
       password,
-      options: {
-        data: {
+      companyName
+    );
+
+    return data.user
+      ? new InteriorDesigner(
+          data.user.id,
           name,
-          role: "INTERIOR_DESIGNER",
-          company_name: companyName,
-        },
-      },
-    });
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    if (!data.user) {
-      throw new Error("User account could not be created.");
-    }
-
-    return data.user;
+          email,
+          companyName
+        )
+      : null;
   }
 
-  public async login(
-    email: string,
-    password: string
-  ) {
-    const { data, error } =
-      await this.supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-    if (error) {
-      throw new Error(error.message);
-    }
+  public async login(email: string, password: string) {
+    const { data } = await User.login(email, password);
 
     return data.user;
   }
 
   public async logout(): Promise<void> {
-    const { error } = await this.supabase.auth.signOut();
-
-    if (error) {
-      throw new Error(error.message);
-    }
+    await User.logout();
   }
 }

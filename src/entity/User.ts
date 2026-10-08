@@ -1,3 +1,5 @@
+import { createClient } from "@/lib/supabase/client";
+
 export abstract class User {
   protected id: string;
   protected name: string;
@@ -22,4 +24,19 @@ export abstract class User {
   }
 
   public abstract getRole(): string;
+
+  public static async login(email: string, password: string) {
+    const supabase = createClient();
+
+    return await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+  }
+
+  public static async logout() {
+    const supabase = createClient();
+
+    return await supabase.auth.signOut();
+  }
 }
