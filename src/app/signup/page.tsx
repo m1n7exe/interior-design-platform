@@ -4,7 +4,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AuthController } from "@/control/AuthController";
+import { AuthController } from "@/controller/AuthController";
 
 type Role = "CUSTOMER" | "INTERIOR_DESIGNER";
 

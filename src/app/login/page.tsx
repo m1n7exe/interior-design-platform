@@ -1,21 +1,45 @@
-
 "use client";
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+import { AuthController } from "@/controller/AuthController";
 
 export default function LoginPage() {
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    // AuthController will go here later.
-    console.log({
-      email,
-      password,
-    });
+    setLoading(true);
+    setError("");
+
+    try {
+      const controller = new AuthController();
+
+      const user = await controller.login(email, password);
+
+      if (!user) {
+        setError("Invalid email or password.");
+        return;
+      }
+
+      // Redirect after successful authentication.
+      // The admin page independently verifies administrator permissions.
+      router.replace("/admin");
+      router.refresh();
+    } catch {
+      setError("Unable to log in. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -107,6 +131,7 @@ export default function LoginPage() {
                   placeholder="john@example.com"
                   required
                   autoComplete="email"
+                  disabled={loading}
                   className="w-full rounded-xl border border-black/10 bg-[#faf9f7] px-4 py-3.5 text-sm text-[#1c1c1a] outline-none transition placeholder:text-black/30 focus:border-black/40 focus:bg-white"
                 />
               </div>
@@ -137,16 +162,30 @@ export default function LoginPage() {
                   placeholder="Enter your password"
                   required
                   autoComplete="current-password"
+                  disabled={loading}
                   className="w-full rounded-xl border border-black/10 bg-[#faf9f7] px-4 py-3.5 text-sm text-[#1c1c1a] outline-none transition placeholder:text-black/30 focus:border-black/40 focus:bg-white"
                 />
               </div>
 
+              {/* Error Message */}
+              {error && (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-red-200 bg-red-50 px-4 py-3"
+                >
+                  <p className="text-sm text-red-600">
+                    {error}
+                  </p>
+                </div>
+              )}
+
               {/* Submit */}
               <button
                 type="submit"
-                className="w-full rounded-xl bg-[#1c1c1a] px-4 py-3.5 text-sm font-medium text-white transition duration-300 hover:-translate-y-0.5 hover:bg-black"
+                disabled={loading}
+                className="w-full rounded-xl bg-[#1c1c1a] px-4 py-3.5 text-sm font-medium text-white transition duration-300 hover:-translate-y-0.5 hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
               >
-                Log In →
+                {loading ? "Logging in..." : "Log In →"}
               </button>
             </form>
 
@@ -160,6 +199,7 @@ export default function LoginPage() {
                 Create account
               </Link>
             </p>
+
           </div>
         </div>
       </div>
