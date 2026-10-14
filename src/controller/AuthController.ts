@@ -42,11 +42,22 @@ export class AuthController {
       : null;
   }
 
-  public async login(email: string, password: string) {
-    const { data } = await User.login(email, password);
 
-    return data.user;
+
+public async login(email: string, password: string) {
+  const { data, error } = await User.login(email, password);
+
+  console.log("Supabase login error object:", error);
+  console.log("Supabase login data:", data);
+
+  if (error) {
+    throw error;
   }
+
+  return data.user;
+}
+
+
 
   public async logout(): Promise<void> {
     await User.logout();

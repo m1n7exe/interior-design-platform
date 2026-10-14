@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { AuthController } from "@/controller/AuthController";
 
 type Account = {
   id: string;
@@ -13,7 +15,7 @@ type Account = {
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState<Account[]>([]);
-
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,6 +38,24 @@ export default function AdminDashboard() {
       setMessage(result.error ?? "Unable to retrieve accounts.");
     }
   }
+  
+
+  async function handleLogout() {
+  setLoading(true);
+  setMessage("");
+
+  try {
+    const controller = new AuthController();
+    await controller.logout();
+
+    router.replace("/login");
+    router.refresh();
+  } catch {
+    setMessage("Unable to log out. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+}
 
   useEffect(() => {
     void getAccounts();
@@ -119,6 +139,7 @@ export default function AdminDashboard() {
   return (
     <main className="min-h-screen bg-gray-50 p-8 text-gray-900">
       <div className="mx-auto max-w-6xl">
+        
         <header className="mb-10">
           <h1 className="text-3xl font-bold">
             InteriorDesignMatch
@@ -127,6 +148,15 @@ export default function AdminDashboard() {
           <p className="mt-2 text-gray-500">
             Administrator Dashboard
           </p>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={loading}
+            className="mt-4 rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
+          >
+            {loading ? "Logging out..." : "Log Out"}
+          </button>
         </header>
 
         {/* Create Account */}

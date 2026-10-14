@@ -1,3 +1,4 @@
+
 "use client";
 
 import { FormEvent, useState } from "react";
@@ -5,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { AuthController } from "@/controller/AuthController";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,8 +24,8 @@ export default function LoginPage() {
     setError("");
 
     try {
+      // 1. Authenticate the user.
       const controller = new AuthController();
-
       const user = await controller.login(email, password);
 
       if (!user) {
@@ -31,12 +33,83 @@ export default function LoginPage() {
         return;
       }
 
-      // Redirect after successful authentication.
-      // The admin page independently verifies administrator permissions.
-      router.replace("/admin");
+
+      // 2. Fetch the user's role from the database.
+      const supabase = createClient();
+
+      console.log("Authenticated user ID:", user.id);
+
+      const {
+        data: profile,
+        error: profileError,
+        status,
+        statusText,
+      } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      console.log(
+        "Profile query result:",
+        JSON.stringify({
+          profile,
+          error: profileError
+            ? {
+                message: profileError.message,
+                code: profileError.code,
+                details: profileError.details,
+                hint: profileError.hint,
+              }
+            : null,
+          status,
+          statusText,
+        }, null, 2)
+      );
+
+      if (profileError) {
+        setError(`Role lookup failed: ${profileError.message}`);
+        return;
+      }
+
+      if (!profile) {
+        setError("No profile was found for this account in public.users.");
+        return;
+      }
+
+      // 3. Redirect according to the role stored in public.users.
+      const role = profile.role?.toUpperCase();
+
+      switch (role) {
+        case "ADMIN":
+          router.replace("/admin");
+          break;
+
+        case "CUSTOMER":
+          router.replace("/CustomerDashboard");
+          break;
+
+        case "INTERIOR_DESIGNER":
+          router.replace("/designer-dashboard");
+          break;
+
+        default:
+          setError("Your account has an unrecognised role. Please contact support.");
+          return;
+      }
+
       router.refresh();
-    } catch {
-      setError("Unable to log in. Please try again.");
+    } catch (err: unknown) {
+      console.error("Login exception:", err);
+
+      const message =
+        err instanceof Error ? err.message : "Unable to log in. Please try again.";
+
+      if (message.toLowerCase().includes("email not confirmed")) {
+        setError("Please confirm your email address before logging in.");
+      } else {
+        setError("Unable to log in. Please check your email and password.");
+      }
     } finally {
       setLoading(false);
     }
@@ -45,7 +118,6 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-[#f5f3ef] p-4 md:p-6">
       <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-7xl overflow-hidden rounded-[2rem] bg-white shadow-2xl">
-
         {/* Visual Panel */}
         <div className="relative hidden w-1/2 overflow-hidden lg:block">
           <video
@@ -87,7 +159,6 @@ export default function LoginPage() {
         {/* Login Panel */}
         <div className="flex w-full items-center justify-center px-6 py-10 md:px-12 lg:w-1/2 lg:px-16">
           <div className="w-full max-w-md">
-
             {/* Mobile Logo */}
             <Link
               href="/"
@@ -113,8 +184,6 @@ export default function LoginPage() {
 
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-5">
-
-              {/* Email */}
               <div>
                 <label
                   htmlFor="email"
@@ -136,7 +205,6 @@ export default function LoginPage() {
                 />
               </div>
 
-              {/* Password */}
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
                   <label
@@ -148,6 +216,7 @@ export default function LoginPage() {
 
                   <button
                     type="button"
+                    onClick={() => router.push("/forgot-password")}
                     className="text-xs font-medium text-black/40 transition hover:text-black"
                   >
                     Forgot password?
@@ -167,19 +236,15 @@ export default function LoginPage() {
                 />
               </div>
 
-              {/* Error Message */}
               {error && (
                 <div
                   role="alert"
                   className="rounded-xl border border-red-200 bg-red-50 px-4 py-3"
                 >
-                  <p className="text-sm text-red-600">
-                    {error}
-                  </p>
+                  <p className="text-sm text-red-600">{error}</p>
                 </div>
               )}
 
-              {/* Submit */}
               <button
                 type="submit"
                 disabled={loading}
@@ -189,7 +254,6 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Signup Link */}
             <p className="mt-7 text-center text-sm text-black/45">
               Don't have an account?{" "}
               <Link
@@ -199,7 +263,6 @@ export default function LoginPage() {
                 Create account
               </Link>
             </p>
-
           </div>
         </div>
       </div>
