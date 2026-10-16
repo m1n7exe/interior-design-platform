@@ -90,7 +90,7 @@ export default function LoginPage() {
           break;
 
         case "INTERIOR_DESIGNER":
-          router.replace("/designer-dashboard");
+          router.replace("/designer");
           break;
 
         default:
