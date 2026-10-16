@@ -30,8 +30,6 @@ export class Admin extends User {
 }
 
   // Create a new user account
-
-  // Create a new user account
   public static async createAccount(
     name: string,
     email: string,
@@ -51,6 +49,23 @@ export class Admin extends User {
     });
   }
 
+  // Update an existing user account
+  public static async updateAccount(
+    id: string,
+    name: string,
+    email: string,
+    role: "CUSTOMER" | "INTERIOR_DESIGNER"
+  ) {
+    const supabase = createAdminClient();
+
+    return await supabase.auth.admin.updateUserById(id, {
+      email,
+      user_metadata: {
+        name,
+        role,
+      },
+    });
+  }
 
   // Delete an existing user account
   public static async deleteAccount(id: string) {

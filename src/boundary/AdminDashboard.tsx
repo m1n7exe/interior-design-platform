@@ -25,6 +25,10 @@ export default function AdminDashboard() {
   const [messageType, setMessageType] = useState<"success" | "error">("success");
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [editingUser, setEditingUser] = useState<Account | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editRole, setEditRole] = useState<Role>("CUSTOMER");
 
   const router = useRouter();
 
@@ -129,6 +133,67 @@ export default function AdminDashboard() {
     }
   }
 
+  function startEditing(user: Account) {
+    const userRole = user.user_metadata?.role;
+
+    if (
+      userRole !== "CUSTOMER" &&
+      userRole !== "INTERIOR_DESIGNER"
+    ) {
+      showMessage("This account cannot be edited here.", "error");
+      return;
+    }
+
+    setEditingUser(user);
+    setEditName(user.user_metadata?.name ?? "");
+    setEditEmail(user.email ?? "");
+    setEditRole(userRole);
+    setMessage("");
+  }
+
+  function cancelEditing() {
+    setEditingUser(null);
+    setEditName("");
+    setEditEmail("");
+    setEditRole("CUSTOMER");
+  }
+
+  async function updateAccount(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!editingUser) return;
+
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/admin/users/${editingUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editName.trim(),
+          email: editEmail.trim(),
+          role: editRole,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        showMessage(result.error ?? "Unable to update account.", "error");
+        return;
+      }
+
+      showMessage("Account updated successfully.", "success");
+      cancelEditing();
+      await getAccounts();
+    } catch {
+      showMessage("A network error occurred while updating the account.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function deleteAccount(id: string) {
     const confirmed = window.confirm(
       "Are you sure you want to delete this account? This action cannot be undone."
@@ -164,22 +229,23 @@ export default function AdminDashboard() {
 
   return (
     <main className="min-h-screen bg-[#f5f3ef] text-[#25251f]">
+
       {/* Navigation */}
-      <header className="border-b border-[#e5e1d8] bg-[#f5f3ef]">
+      <header className="border-b border-[#e5dcf2] bg-[#eee7f8]">
         <div className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-5 sm:px-8 lg:px-12">
           <div>
-            <a href="/" className="text-2xl font-semibold tracking-tight">
-              Interior<span className="text-[#918c7d]">.</span>
+            <a href="/" className="text-2xl font-semibold tracking-tight text-[#302642]">
+              Interior<span className="text-[#9b85bc]">.</span>
             </a>
-            <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.22em] text-[#8b877d]">
+            <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.22em] text-[#827394]">
               Administration
             </p>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden items-center gap-2 rounded-full border border-[#e2ded5] bg-white px-3 py-2 sm:flex">
-              <span className="h-2 w-2 rounded-full bg-[#7c8b69]" />
-              <span className="text-xs font-medium text-[#625f56]">
+            <div className="hidden items-center gap-2 rounded-full border border-[#ded3ed] bg-[#f9f6fd] px-3 py-2 sm:flex">
+              <span className="h-2 w-2 rounded-full bg-[#82977b]" />
+              <span className="text-xs font-medium text-[#62556f]">
                 Administrator
               </span>
             </div>
@@ -188,7 +254,7 @@ export default function AdminDashboard() {
               type="button"
               onClick={handleLogout}
               disabled={loading}
-              className="rounded-full border border-[#d8d4ca] px-4 py-2.5 text-sm font-medium transition hover:bg-white disabled:opacity-50"
+              className="rounded-full border border-[#d3c5e4] bg-[#f9f6fd] px-4 py-2.5 text-sm font-medium text-[#493b5c] transition hover:bg-white disabled:opacity-50"
             >
               {loading ? "Logging out..." : "Log out"}
             </button>
@@ -334,7 +400,7 @@ export default function AdminDashboard() {
                   htmlFor="account-password"
                   className="mb-2 block text-sm font-medium text-[#4c4a42]"
                 >
-                  Temporary password
+                  Password
                 </label>
                 <input
                   id="account-password"
@@ -435,6 +501,90 @@ export default function AdminDashboard() {
               </button>
             </div>
 
+
+        {editingUser && (
+          <div className="border-b border-[#e5dcf2] bg-[#f9f6fd] p-5 sm:p-7">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-[#302642]">
+                  Edit user account
+                </h3>
+                <p className="mt-1 text-sm text-[#827394]">
+                  Update the account details below.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={cancelEditing}
+                disabled={loading}
+                className="rounded-lg px-3 py-2 text-sm text-[#6f648b] hover:bg-[#eee7f8] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <form onSubmit={updateAccount} className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="edit-name" className="mb-2 block text-sm font-medium text-[#4c4a42]">
+                  Full name
+                </label>
+                <input
+                  id="edit-name"
+                  value={editName}
+                  onChange={(event) => setEditName(event.target.value)}
+                  required
+                  maxLength={100}
+                  disabled={loading}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-email" className="mb-2 block text-sm font-medium text-[#4c4a42]">
+                  Email address
+                </label>
+                <input
+                  id="edit-email"
+                  type="email"
+                  value={editEmail}
+                  onChange={(event) => setEditEmail(event.target.value)}
+                  required
+                  disabled={loading}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-role" className="mb-2 block text-sm font-medium text-[#4c4a42]">
+                  Account type
+                </label>
+                <select
+                  id="edit-role"
+                  value={editRole}
+                  onChange={(event) => setEditRole(event.target.value as Role)}
+                  disabled={loading}
+                  className={inputClass}
+                >
+                  <option value="CUSTOMER">Customer</option>
+                  <option value="INTERIOR_DESIGNER">Interior designer</option>
+                </select>
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full rounded-xl bg-[#302642] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#493b5c] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? "Saving..." : "Save changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+
             <div className="overflow-x-auto">
               <table className="w-full min-w-[650px] text-left">
                 <thead>
@@ -483,15 +633,27 @@ export default function AdminDashboard() {
                           <RoleBadge role={userRole} />
                         </td>
 
+                        
                         <td className="px-5 py-4 text-right sm:px-7">
-                          <button
-                            type="button"
-                            onClick={() => void deleteAccount(user.id)}
-                            disabled={loading}
-                            className="rounded-lg border border-[#ead8d4] px-3 py-2 text-xs font-medium text-[#a24f43] transition hover:bg-[#fbefed] disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Delete
-                          </button>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startEditing(user)}
+                              disabled={loading}
+                              className="rounded-lg border border-[#ded3ed] bg-[#f9f6fd] px-3 py-2 text-xs font-medium text-[#68538d] transition hover:bg-[#eee7f8] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Edit
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => void deleteAccount(user.id)}
+                              disabled={loading}
+                              className="rounded-lg border border-[#ead8d4] px-3 py-2 text-xs font-medium text-[#a24f43] transition hover:bg-[#fbefed] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
