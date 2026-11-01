@@ -1,8 +1,9 @@
-import { AdminController } from "@/controller/AdminController";
+import { AdminDeletionController } from "@/controller/AdminController";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { createClient } from "@/lib/supabase/server";
+import { Admin } from "@/entity/Admin";
 
-const controller = new AdminController();
+const controller = new AdminDeletionController();
 
 export async function DELETE(
   request: Request,
@@ -41,8 +42,6 @@ export async function DELETE(
   }
 
   // Check whether the target account is another administrator.
-  const { Admin } = await import("@/entity/Admin");
-
   if (await Admin.isAdmin(id)) {
     return Response.json(
       { error: "Administrator accounts cannot be deleted." },

@@ -1,8 +1,12 @@
-import { AdminController } from "@/controller/AdminController";
+import {
+  AdminAccountController,
+  AdminRetrievalController,
+} from "@/controller/AdminController";
+
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 
-
-const controller = new AdminController();
+const accountController = new AdminAccountController();
+const retrievalController = new AdminRetrievalController();
 
 export async function GET() {
   if (!(await requireAdmin())) {
@@ -12,7 +16,7 @@ export async function GET() {
     );
   }
 
-  const result = await controller.getAccounts();
+  const result = await retrievalController.getAccounts();
 
   return Response.json(result);
 }
@@ -42,7 +46,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await controller.createAccount(
+  const result = await accountController.createAccount(
     body.name,
     body.email,
     body.password,
