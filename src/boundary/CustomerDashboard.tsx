@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -13,35 +12,43 @@ export default function CustomerDashboard() {
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
 
+  // ==================================================
+  // CUSTOMER AUTHENTICATION
+  // ==================================================
+
   useEffect(() => {
     async function loadCustomer() {
       const supabase = createClient();
 
       try {
-        const { data: authData, error: authError } =
-          await supabase.auth.getUser();
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
 
-        if (authError || !authData.user) {
+        if (authError || !user) {
           router.replace("/login");
           return;
         }
 
-        const { data: profile } = await supabase
-          .from("users")
-          .select("name, role")
-          .eq("id", authData.user.id)
-          .maybeSingle();
+        const { data: profile, error: profileError } =
+          await supabase
+            .from("users")
+            .select("name, role")
+            .eq("id", user.id)
+            .maybeSingle();
 
-        if (profile?.role !== "CUSTOMER") {
+        if (profileError || !profile || profile.role !== "CUSTOMER") {
           router.replace("/login");
           return;
         }
 
         setCustomerName(
-          profile.name || authData.user.user_metadata?.name || "Customer"
+          profile.name || user.user_metadata?.name || "Customer"
         );
       } catch (error) {
         console.error("Unable to load customer profile:", error);
+        router.replace("/login");
       } finally {
         setLoading(false);
       }
@@ -50,11 +57,16 @@ export default function CustomerDashboard() {
     loadCustomer();
   }, [router]);
 
+  // ==================================================
+  // LOGOUT
+  // ==================================================
+
   async function handleLogout() {
     setSigningOut(true);
 
     try {
       const supabase = createClient();
+
       const { error } = await supabase.auth.signOut();
 
       if (error) {
@@ -71,314 +83,283 @@ export default function CustomerDashboard() {
     }
   }
 
+  // ==================================================
+  // LOADING STATE
+  // ==================================================
+
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f5f3ef]">
-        <p className="text-sm text-[#77766f]">
-          Loading your dashboard...
+      <main className="flex min-h-screen items-center justify-center bg-[#faf9f6]">
+        <p className="text-sm text-gray-400">
+          Loading...
         </p>
       </main>
     );
   }
 
+  // ==================================================
+  // DASHBOARD
+  // ==================================================
+
   return (
-    <main className="min-h-screen bg-[#f5f3ef] text-[#1c1c1a]">
+    <main className="min-h-screen bg-[#faf9f6] text-[#252525]">
+
       <div className="flex min-h-screen">
-        {/* Sidebar */}
+
+        {/* ========================================== */}
+        {/* SIDEBAR */}
+        {/* ========================================== */}
+
         <aside className="hidden w-64 shrink-0 flex-col border-r border-black/5 bg-white px-6 py-8 md:flex">
+
+          {/* LOGO */}
+
           <Link
             href="/"
-            className="mb-12 text-2xl font-semibold tracking-tight"
+            className="mb-12 text-2xl font-bold tracking-tight"
           >
-            Interior<span className="text-[#a58d72]">.</span>
+            space<span className="text-[#9a8065]">.</span>
           </Link>
 
-          <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.25em] text-black/35">
+          {/* NAVIGATION */}
+
+          <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400">
             Workspace
           </p>
 
           <nav className="space-y-2">
-            <a
-              href="#overview"
+
+            <Link
+              href="/customer/dashboard"
               className="flex items-center gap-3 rounded-xl bg-[#f5f3ef] px-4 py-3 text-sm font-medium"
             >
               <span>⌂</span>
               Overview
-            </a>
-
-            <a
-              href="#projects"
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-black/55 transition hover:bg-[#f5f3ef] hover:text-black"
-            >
-              <span>▤</span>
-              My projects
-            </a>
-
-            <a
-              href="#inspiration"
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-black/55 transition hover:bg-[#f5f3ef] hover:text-black"
-            >
-              <span>♡</span>
-              Saved inspiration
-            </a>
-
-            <a
-              href="#designers"
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-black/55 transition hover:bg-[#f5f3ef] hover:text-black"
-            >
-              <span>✳</span>
-              Find designers
-            </a>
-          </nav>
-
-          <div className="mt-auto border-t border-black/5 pt-6">
-            <div className="mb-4">
-              <p className="text-sm font-medium">{customerName}</p>
-              <p className="mt-1 text-xs text-black/40">
-                Customer account
-              </p>
-            </div>
-
-            <button
-              onClick={handleLogout}
-              disabled={signingOut}
-              className="w-full rounded-xl border border-black/10 px-4 py-3 text-left text-sm text-black/60 transition hover:bg-[#f5f3ef] disabled:opacity-50"
-            >
-              {signingOut ? "Signing out..." : "Sign out ↗"}
-            </button>
-          </div>
-        </aside>
-
-        {/* Main content */}
-        <section className="min-w-0 flex-1 px-5 py-6 sm:px-8 sm:py-10 lg:px-12">
-          {/* Top navigation */}
-          <header className="mb-10 flex items-center justify-between">
-            <Link
-              href="/"
-              className="text-xl font-semibold tracking-tight md:hidden"
-            >
-              Interior<span className="text-[#a58d72]">.</span>
             </Link>
 
-            <p className="hidden text-sm text-black/45 md:block">
-              Your personal design space
+            <Link
+              href="/CustomerDashboard/favourites"
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-gray-500 transition hover:bg-[#f5f3ef] hover:text-black"
+            >
+              <span>♡</span>
+              Saved Inspiration
+            </Link>
+
+            <Link
+              href="/marketplace"
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-gray-500 transition hover:bg-[#f5f3ef] hover:text-black"
+            >
+              <span>✳</span>
+              Explore Marketplace
+            </Link>
+
+          </nav>
+
+          {/* ACCOUNT */}
+
+          <div className="mt-auto border-t border-black/5 pt-6">
+
+            <p className="text-sm font-medium">
+              {customerName}
+            </p>
+
+            <p className="mt-1 text-xs text-gray-400">
+              Customer
             </p>
 
             <button
+              type="button"
               onClick={handleLogout}
               disabled={signingOut}
-              className="rounded-full border border-black/10 bg-white px-4 py-2.5 text-xs font-medium transition hover:bg-[#ece9e2] md:hidden"
+              className="mt-5 w-full rounded-xl border border-black/10 px-4 py-3 text-left text-sm text-gray-500 transition hover:bg-[#f5f3ef] disabled:opacity-50"
+            >
+              {signingOut ? "Signing out..." : "Sign out ↗"}
+            </button>
+
+          </div>
+
+        </aside>
+
+        {/* ========================================== */}
+        {/* MAIN CONTENT */}
+        {/* ========================================== */}
+
+        <section className="min-w-0 flex-1 px-5 py-6 sm:px-8 sm:py-10 lg:px-12">
+
+          {/* HEADER */}
+
+          <header className="mb-14 flex items-center justify-between">
+
+            <Link
+              href="/"
+              className="text-xl font-bold tracking-tight md:hidden"
+            >
+              space<span className="text-[#9a8065]">.</span>
+            </Link>
+
+            <p className="hidden text-sm text-gray-400 md:block">
+              Customer Workspace
+            </p>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={signingOut}
+              className="rounded-full border border-black/10 bg-white px-4 py-2.5 text-xs font-medium transition hover:bg-[#f5f3ef] disabled:opacity-50 md:hidden"
             >
               {signingOut ? "Signing out..." : "Sign out"}
             </button>
 
             <Link
-              href="/"
-              className="hidden text-sm text-black/55 transition hover:text-black md:block"
+              href="/marketplace"
+              className="hidden text-sm text-gray-500 transition hover:text-black md:block"
             >
-              Back to home ↗
+              Marketplace ↗
             </Link>
+
           </header>
 
-          {/* Welcome */}
-          <section id="overview" className="mb-10">
-            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.3em] text-[#a58d72]">
-              CUSTOMER WORKSPACE
+          {/* ======================================== */}
+          {/* WELCOME */}
+          {/* ======================================== */}
+
+          <section className="mb-12">
+
+            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.25em] text-[#9a8065]">
+              OVERVIEW
             </p>
 
-            <h1 className="text-3xl font-medium tracking-tight sm:text-4xl lg:text-5xl">
+            <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">
               Welcome back, {customerName}.
             </h1>
 
-            <p className="mt-4 max-w-xl text-sm leading-7 text-black/50">
-              Your dream space starts here. Explore design ideas, discover
-              talented interior designers, and bring your vision to life.
-            </p>
           </section>
 
-          {/* Hero card */}
-          <section className="relative mb-8 overflow-hidden rounded-[2rem] bg-[#292923] p-7 text-white sm:p-10 lg:p-12">
-            <div className="absolute -right-10 -top-16 h-64 w-64 rounded-full border border-white/10" />
-            <div className="absolute -right-2 -top-8 h-48 w-48 rounded-full border border-white/10" />
+          {/* ======================================== */}
+          {/* FEATURED MARKETPLACE CARD */}
+          {/* ======================================== */}
 
-            <div className="relative max-w-xl">
-              <p className="mb-5 text-[10px] font-medium uppercase tracking-[0.3em] text-white/45">
-                YOUR NEXT CHAPTER
+          <section className="relative mb-8 overflow-hidden rounded-2xl bg-[#292923] p-8 text-white sm:p-10">
+
+            <div className="relative z-10 max-w-lg">
+
+              <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-white/50">
+                DISCOVER
               </p>
 
-              <h2 className="max-w-lg text-3xl font-medium leading-tight tracking-tight sm:text-4xl">
-                A space that feels
+              <h2 className="mt-5 text-3xl font-medium leading-tight sm:text-4xl">
+                Find inspiration.
                 <br />
-                unmistakably yours.
+                Design your space.
               </h2>
 
-              <p className="mt-4 max-w-md text-sm leading-6 text-white/60">
-                Start with an idea, find the right designer, and create a
-                home that reflects your lifestyle.
-              </p>
-
-              <a
-                href="#designers"
-                className="mt-7 inline-flex rounded-full bg-white px-6 py-3 text-sm font-medium text-[#1c1c1a] transition hover:bg-[#e9e4db]"
+              <Link
+                href="/marketplace"
+                className="mt-7 inline-flex rounded-full bg-white px-6 py-3 text-sm font-medium text-[#252525] transition hover:bg-[#e9e4db]"
               >
-                Explore your possibilities ↗
-              </a>
+                Explore Marketplace ↗
+              </Link>
+
             </div>
+
+            <div className="pointer-events-none absolute -right-12 -top-16 h-64 w-64 rounded-full border border-white/10" />
+
+            <div className="pointer-events-none absolute -right-4 -top-8 h-48 w-48 rounded-full border border-white/10" />
+
           </section>
 
-          {/* Quick actions */}
-          <section className="mb-10">
+          {/* ======================================== */}
+          {/* QUICK LINKS */}
+          {/* ======================================== */}
+
+          <section>
+
             <div className="mb-5">
-              <h2 className="text-lg font-medium">Your workspace</h2>
-              <p className="mt-1 text-sm text-black/45">
-                Everything you need to get started.
-              </p>
+
+              <h2 className="text-lg font-medium">
+                Your workspace
+              </h2>
+
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              <a
-                id="projects"
-                href="#project-start"
-                className="group rounded-2xl border border-black/5 bg-white p-6 transition hover:-translate-y-1 hover:shadow-lg"
+            <div className="grid gap-4 sm:grid-cols-2">
+
+              {/* SAVED INSPIRATION */}
+
+              <Link
+                href="/CustomerDashboard/favourites"
+                className="group rounded-2xl border border-black/5 bg-white p-6 transition hover:-translate-y-1 hover:shadow-md"
               >
-                <div className="mb-8 flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3eee7] text-xl">
-                  ▤
-                </div>
 
-                <h3 className="font-medium">My projects</h3>
-
-                <p className="mt-2 text-sm leading-6 text-black/45">
-                  Organise your design plans and work towards your ideal
-                  space.
-                </p>
-
-                <p className="mt-5 text-sm font-medium">
-                  View projects <span className="transition group-hover:ml-1">↗</span>
-                </p>
-              </a>
-
-              <a
-                id="inspiration"
-                href="#inspiration-start"
-                className="group rounded-2xl border border-black/5 bg-white p-6 transition hover:-translate-y-1 hover:shadow-lg"
-              >
                 <div className="mb-8 flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3eee7] text-xl">
                   ♡
                 </div>
 
-                <h3 className="font-medium">Saved inspiration</h3>
+                <h3 className="font-medium">
+                  Saved Inspiration
+                </h3>
 
-                <p className="mt-2 text-sm leading-6 text-black/45">
-                  Keep your favourite interiors and ideas together in one
-                  place.
+                <p className="mt-2 text-sm text-gray-400">
+                  View your favourite projects.
                 </p>
 
-                <p className="mt-5 text-sm font-medium">
-                  Explore ideas <span className="transition group-hover:ml-1">↗</span>
+                <p className="mt-6 text-sm font-medium">
+                  View saved projects
+                  <span className="ml-1 transition group-hover:ml-2">
+                    →
+                  </span>
                 </p>
-              </a>
 
-              <a
-                id="designers"
-                href="#designer-start"
-                className="group rounded-2xl border border-black/5 bg-white p-6 transition hover:-translate-y-1 hover:shadow-lg sm:col-span-2 xl:col-span-1"
+              </Link>
+
+              {/* MARKETPLACE */}
+
+              <Link
+                href="/marketplace"
+                className="group rounded-2xl border border-black/5 bg-white p-6 transition hover:-translate-y-1 hover:shadow-md"
               >
+
                 <div className="mb-8 flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3eee7] text-xl">
                   ✳
                 </div>
 
-                <h3 className="font-medium">Find a designer</h3>
+                <h3 className="font-medium">
+                  Find Designers
+                </h3>
 
-                <p className="mt-2 text-sm leading-6 text-black/45">
-                  Discover interior designers who can help bring your
-                  vision to life.
+                <p className="mt-2 text-sm text-gray-400">
+                  Discover interior design projects.
                 </p>
 
-                <p className="mt-5 text-sm font-medium">
-                  Meet designers <span className="transition group-hover:ml-1">↗</span>
+                <p className="mt-6 text-sm font-medium">
+                  Explore designers
+                  <span className="ml-1 transition group-hover:ml-2">
+                    →
+                  </span>
                 </p>
-              </a>
+
+              </Link>
+
             </div>
+
           </section>
 
-          {/* Project empty state */}
-          <section
-            id="project-start"
-            className="mb-6 rounded-2xl border border-black/5 bg-white p-6 sm:p-8"
-          >
-            <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
-              <div>
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.25em] text-[#a58d72]">
-                  YOUR PROJECTS
-                </p>
+          {/* ======================================== */}
+          {/* FOOTER */}
+          {/* ======================================== */}
 
-                <h2 className="text-xl font-medium">
-                  Make room for something beautiful.
-                </h2>
+          <footer className="mt-16 border-t border-black/5 pt-6">
 
-                <p className="mt-2 max-w-lg text-sm leading-6 text-black/45">
-                  Your project space is ready. Start exploring designers
-                  and planning your next interior.
-                </p>
-              </div>
-
-              <a
-                href="#designer-start"
-                className="inline-flex shrink-0 items-center justify-center rounded-full bg-[#1c1c1a] px-5 py-3 text-sm font-medium text-white transition hover:bg-black"
-              >
-                Get started ↗
-              </a>
-            </div>
-          </section>
-
-          {/* Inspiration empty state */}
-          <section
-            id="inspiration-start"
-            className="mb-6 rounded-2xl border border-black/5 bg-white p-6 sm:p-8"
-          >
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.25em] text-[#a58d72]">
-              DESIGN INSPIRATION
+            <p className="text-xs text-gray-400">
+              space. — Interior Design Marketplace
             </p>
 
-            <h2 className="text-xl font-medium">
-              Collect ideas you love.
-            </h2>
-
-            <p className="mt-2 max-w-xl text-sm leading-6 text-black/45">
-              Save your favourite rooms, materials, colour palettes, and
-              layouts as you explore the platform.
-            </p>
-          </section>
-
-          {/* Designer discovery */}
-          <section
-            id="designer-start"
-            className="rounded-2xl border border-black/5 bg-[#eae5dc] p-6 sm:p-8"
-          >
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.25em] text-[#8c755d]">
-              YOUR NEXT STEP
-            </p>
-
-            <h2 className="text-xl font-medium">
-              Find the right person for your space.
-            </h2>
-
-            <p className="mt-2 max-w-xl text-sm leading-6 text-black/55">
-              Explore the designers on your platform and find someone
-              whose style matches your vision.
-            </p>
-
-            <p className="mt-5 text-xs text-black/40">
-              Designer listings and project management can be connected
-              to your database as those features are implemented.
-            </p>
-          </section>
-
-          <footer className="mt-10 border-t border-black/5 pt-6 text-xs text-black/35">
-            Interior. — Designed around you.
           </footer>
+
         </section>
+
       </div>
+
     </main>
   );
 }

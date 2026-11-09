@@ -38,6 +38,8 @@ export class IDP {
     this.createdAt = createdAt;
   }
 
+  // Getters
+
   public getId(): string {
     return this.id;
   }
@@ -78,7 +80,30 @@ export class IDP {
     return this.createdAt;
   }
 
+  // Convert database records into IDP entities
+
+  private static mapToEntities(data: any[]): IDP[] {
+    return data.map(
+      (project) =>
+        new IDP(
+          project.id,
+          project.designer_id,
+          project.title,
+          project.description ?? "",
+          project.category,
+          project.budget === null
+            ? null
+            : Number(project.budget),
+          project.status,
+          project.cover_image,
+          project.images ?? [],
+          project.created_at
+        )
+    );
+  }
+
   // Retrieve all interior designer projects
+
   public static async getProjects() {
     const supabase = await createClient();
 
@@ -91,31 +116,15 @@ export class IDP {
       return { data: null, error };
     }
 
-    const projects = (data ?? []).map(
-      (project) =>
-        new IDP(
-          project.id,
-          project.designer_id,
-          project.title,
-          project.description ?? "",
-          project.category,
-          project.budget === null
-            ? null
-            : Number(project.budget),
-          project.status,
-          project.cover_image,
-          project.images ?? [],
-          project.created_at
-        )
-    );
-
-    return { data: projects, error: null };
+    return {
+      data: IDP.mapToEntities(data ?? []),
+      error: null,
+    };
   }
 
   // Retrieve projects belonging to a specific designer
-  public static async getProjectsByDesigner(
-    designerId: string
-  ) {
+
+  public static async getProjectsByDesigner(designerId: string) {
     const supabase = await createClient();
 
     const { data, error } = await supabase
@@ -128,24 +137,39 @@ export class IDP {
       return { data: null, error };
     }
 
-    const projects = (data ?? []).map(
-      (project) =>
-        new IDP(
-          project.id,
-          project.designer_id,
-          project.title,
-          project.description ?? "",
-          project.category,
-          project.budget === null
-            ? null
-            : Number(project.budget),
-          project.status,
-          project.cover_image,
-          project.images ?? [],
-          project.created_at
-        )
-    );
+    return {
+      data: IDP.mapToEntities(data ?? []),
+      error: null,
+    };
+  }
 
-    return { data: projects, error: null };
+  // Retrieve projects using a list of project IDs
+
+  public static async getProjectsByIds(projectIds: string[]) {
+    if (!projectIds.length) {
+      return {
+        data: [],
+        error: null,
+      };
+    }
+
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("interior_designer_projects")
+      .select("*")
+      .in("id", projectIds);
+
+    if (error) {
+      return {
+        data: null,
+        error,
+      };
+    }
+
+    return {
+      data: IDP.mapToEntities(data ?? []),
+      error: null,
+    };
   }
 }

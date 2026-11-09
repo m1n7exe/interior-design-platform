@@ -29,7 +29,7 @@ export class Admin extends User {
   return !error && data !== null;
 }
 
-  // Create a new user account
+
 
   // Create a new user account
   public static async createAccount(
