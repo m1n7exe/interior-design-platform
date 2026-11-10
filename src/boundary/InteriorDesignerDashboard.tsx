@@ -28,6 +28,33 @@ interface CompanyInformation {
   specialisations: string[] | null;
 }
 
+interface IDPProject {
+  id: string;
+  designerId: string;
+  title: string;
+  description: string;
+  categoryId: string;
+  category: string;
+  budget: number | null;
+  status: string;
+  coverImage: string | null;
+  images: string[];
+  createdAt: string;
+}
+
+interface IDPCategory {
+  id: string;
+  name: string;
+}
+
+interface IDPFormData {
+  title: string;
+  description: string;
+  categoryId: string;
+  budget: string;
+  coverImage: string;
+}
+
 const emptyCompany: CompanyInformation = {
   company_name: "",
   bio: "",
@@ -40,6 +67,14 @@ const emptyCompany: CompanyInformation = {
   specialisations: [],
 };
 
+const emptyProjectForm: IDPFormData = {
+  title: "",
+  description: "",
+  categoryId: "",
+  budget: "",
+  coverImage: "",
+};
+
 // ==================================================
 // INTERIOR DESIGNER DASHBOARD
 // ==================================================
@@ -49,14 +84,13 @@ export default function InteriorDesignerDashboard() {
   const supabase = useMemo(() => createClient(), []);
 
   // ==================================================
-  // STATE MANAGEMENT
+  // COMPANY STATE
   // ==================================================
 
   const [userId, setUserId] = useState("");
   const [designerName, setDesignerName] = useState("Designer");
 
   const [company, setCompany] = useState<CompanyInformation | null>(null);
-
   const [formData, setFormData] =
     useState<CompanyInformation>(emptyCompany);
 
@@ -70,7 +104,70 @@ export default function InteriorDesignerDashboard() {
   const [successMessage, setSuccessMessage] = useState("");
 
   // ==================================================
-  // AUTHENTICATION AND LOAD COMPANY INFORMATION
+  // PROJECT STATE
+  // ==================================================
+
+  const [projects, setProjects] = useState<IDPProject[]>([]);
+  const [categories, setCategories] = useState<IDPCategory[]>([]);
+
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const [projectSaving, setProjectSaving] = useState(false);
+
+  const [showProjectForm, setShowProjectForm] = useState(false);
+  const [editingProject, setEditingProject] =
+    useState<IDPProject | null>(null);
+
+  const [projectForm, setProjectForm] =
+    useState<IDPFormData>(emptyProjectForm);
+
+  const [projectError, setProjectError] = useState("");
+  const [projectSuccess, setProjectSuccess] = useState("");
+
+  // ==================================================
+  // LOAD DESIGNER PROJECTS
+  // ==================================================
+
+  async function loadProjects(isActive?: () => boolean) {
+    setProjectsLoading(true);
+    setProjectError("");
+
+    try {
+      const response = await fetch("/api/idp/designer-projects", {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "Unable to retrieve your projects."
+        );
+      }
+
+      if (isActive && !isActive()) return;
+
+      setProjects(result.projects || []);
+      setCategories(result.categories || []);
+    } catch (error) {
+      console.error("Unable to load designer projects:", error);
+
+      if (isActive && !isActive()) return;
+
+      setProjectError(
+        error instanceof Error
+          ? error.message
+          : "Unable to retrieve your projects."
+      );
+    } finally {
+      if (!isActive || isActive()) {
+        setProjectsLoading(false);
+      }
+    }
+  }
+
+  // ==================================================
+  // AUTHENTICATION AND LOAD DASHBOARD INFORMATION
   // ==================================================
 
   useEffect(() => {
@@ -112,7 +209,7 @@ export default function InteriorDesignerDashboard() {
           profile.name || user.user_metadata?.name || "Designer"
         );
 
-        // Retrieve company information through the controller.
+        // Retrieve company information.
         const controller =
           new InteriorDesignerCompanyRetrievalController();
 
@@ -126,11 +223,7 @@ export default function InteriorDesignerDashboard() {
           setCompanyError(
             result.error || "Unable to retrieve company information."
           );
-
-          return;
-        }
-
-        if (result.company?.company_name) {
+        } else if (result.company?.company_name) {
           setCompany(result.company);
 
           setFormData({
@@ -149,6 +242,9 @@ export default function InteriorDesignerDashboard() {
 
           setShowCompanyForm(true);
         }
+
+        // Retrieve projects and categories through the API.
+        await loadProjects(() => active);
       } catch (error) {
         console.error("Unable to load designer dashboard:", error);
         router.replace("/login");
@@ -167,7 +263,7 @@ export default function InteriorDesignerDashboard() {
   }, [router, supabase]);
 
   // ==================================================
-  // HANDLE FORM INPUT
+  // COMPANY FORM INPUT
   // ==================================================
 
   function handleInputChange(
@@ -211,6 +307,10 @@ export default function InteriorDesignerDashboard() {
     setShowCompanyForm(true);
     setCompanyError("");
     setSuccessMessage("");
+
+    document
+      .getElementById("company-information")
+      ?.scrollIntoView({ behavior: "smooth" });
   }
 
   // ==================================================
@@ -219,14 +319,12 @@ export default function InteriorDesignerDashboard() {
 
   function handleResetForm() {
     if (company) {
-      // Restore the last saved company information.
       setFormData({
         ...emptyCompany,
         ...company,
         specialisations: company.specialisations || [],
       });
     } else {
-      // Clear the form when creating a new company.
       setFormData({ ...emptyCompany });
     }
 
@@ -266,7 +364,6 @@ export default function InteriorDesignerDashboard() {
     setSaving(true);
 
     try {
-      // Verify the authenticated designer.
       const {
         data: { user },
         error: authError,
@@ -278,7 +375,6 @@ export default function InteriorDesignerDashboard() {
         return;
       }
 
-      // Prepare controller parameters.
       const companyName = formData.company_name.trim();
       const bio = formData.bio?.trim() || null;
       const logoUrl = formData.logo_url?.trim() || null;
@@ -292,7 +388,6 @@ export default function InteriorDesignerDashboard() {
       let result;
 
       if (company) {
-        // Update existing company information.
         const controller =
           new InteriorDesignerCompanyUpdateController();
 
@@ -309,7 +404,6 @@ export default function InteriorDesignerDashboard() {
           specialisations
         );
       } else {
-        // Create company information.
         const controller =
           new InteriorDesignerCompanyCreationController();
 
@@ -327,14 +421,12 @@ export default function InteriorDesignerDashboard() {
         );
       }
 
-      // Handle controller response.
       if (!result.success || !result.company) {
         throw new Error(
           result.error || "Unable to save company information."
         );
       }
 
-      // Update boundary state.
       setCompany(result.company);
 
       setFormData({
@@ -366,24 +458,19 @@ export default function InteriorDesignerDashboard() {
   // ==================================================
 
   async function handleDeleteCompany() {
-    if (!company || !userId) {
-      return;
-    }
+    if (!company || !userId) return;
 
     const confirmed = window.confirm(
       "Are you sure you want to delete your company information?"
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     setSaving(true);
     setCompanyError("");
     setSuccessMessage("");
 
     try {
-      // Delete company information through the controller.
       const controller =
         new InteriorDesignerCompanyDeletionController();
 
@@ -395,7 +482,6 @@ export default function InteriorDesignerDashboard() {
         );
       }
 
-      // Update boundary state after successful deletion.
       setCompany(null);
       setFormData({ ...emptyCompany });
       setShowCompanyForm(false);
@@ -413,6 +499,203 @@ export default function InteriorDesignerDashboard() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  // ==================================================
+  // PROJECT FORM INPUT
+  // ==================================================
+
+  function handleProjectInputChange(
+    field: keyof IDPFormData,
+    value: string
+  ) {
+    setProjectForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+  }
+
+  // ==================================================
+  // OPEN CREATE PROJECT FORM
+  // ==================================================
+
+  function openCreateProjectForm() {
+    setEditingProject(null);
+    setProjectForm({ ...emptyProjectForm });
+    setProjectError("");
+    setProjectSuccess("");
+    setShowProjectForm(true);
+
+    document
+      .getElementById("my-projects")
+      ?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  // ==================================================
+  // OPEN EDIT PROJECT FORM
+  // ==================================================
+
+  function openEditProjectForm(project: IDPProject) {
+    setEditingProject(project);
+
+    setProjectForm({
+      title: project.title,
+      description: project.description || "",
+      categoryId: project.categoryId,
+      budget:
+        project.budget !== null ? String(project.budget) : "",
+      coverImage: project.coverImage || "",
+    });
+
+    setProjectError("");
+    setProjectSuccess("");
+    setShowProjectForm(true);
+
+    document
+      .getElementById("my-projects")
+      ?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  // ==================================================
+  // CLOSE PROJECT FORM
+  // ==================================================
+
+  function closeProjectForm() {
+    setShowProjectForm(false);
+    setEditingProject(null);
+    setProjectForm({ ...emptyProjectForm });
+    setProjectError("");
+  }
+
+  // ==================================================
+  // CREATE / UPDATE PROJECT
+  // ==================================================
+
+  async function handleSaveProject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setProjectError("");
+    setProjectSuccess("");
+
+    if (!projectForm.title.trim()) {
+      setProjectError("Please enter a project title.");
+      return;
+    }
+
+    if (!projectForm.categoryId) {
+      setProjectError("Please select a project category.");
+      return;
+    }
+
+    const budget =
+      projectForm.budget.trim() === ""
+        ? null
+        : Number(projectForm.budget);
+
+    if (
+      budget !== null &&
+      (!Number.isFinite(budget) || budget < 0)
+    ) {
+      setProjectError("Please enter a valid project budget.");
+      return;
+    }
+
+    setProjectSaving(true);
+
+    try {
+      const endpoint = editingProject
+        ? `/api/idp/designer-projects/${editingProject.id}`
+        : "/api/idp/designer-projects";
+
+      const response = await fetch(endpoint, {
+        method: editingProject ? "PATCH" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: projectForm.title.trim(),
+          description: projectForm.description.trim() || null,
+          categoryId: projectForm.categoryId,
+          budget,
+          coverImage: projectForm.coverImage.trim() || null,
+          images: editingProject?.images || [],
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "Unable to save your project."
+        );
+      }
+
+      setShowProjectForm(false);
+      setEditingProject(null);
+      setProjectForm({ ...emptyProjectForm });
+
+      setProjectSuccess(
+        editingProject
+          ? "Your project has been updated successfully."
+          : "Your project has been created successfully."
+      );
+
+      await loadProjects();
+    } catch (error) {
+      console.error("Unable to save project:", error);
+
+      setProjectError(
+        error instanceof Error
+          ? error.message
+          : "Unable to save your project."
+      );
+    } finally {
+      setProjectSaving(false);
+    }
+  }
+
+  // ==================================================
+  // DELETE PROJECT
+  // ==================================================
+
+  async function handleDeleteProject(project: IDPProject) {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${project.title}"?`
+    );
+
+    if (!confirmed) return;
+
+    setProjectError("");
+    setProjectSuccess("");
+
+    try {
+      const response = await fetch(
+        `/api/idp/designer-projects/${project.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "Unable to delete your project."
+        );
+      }
+
+      setProjectSuccess("Your project has been deleted successfully.");
+
+      await loadProjects();
+    } catch (error) {
+      console.error("Unable to delete project:", error);
+
+      setProjectError(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete your project."
+      );
     }
   }
 
@@ -514,11 +797,21 @@ export default function InteriorDesignerDashboard() {
               Company Information
             </button>
 
-            <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-gray-400">
+            <button
+              type="button"
+              onClick={() =>
+                document
+                  .getElementById("my-projects")
+                  ?.scrollIntoView({ behavior: "smooth" })
+              }
+              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm text-gray-500 transition hover:bg-[#f5f3ef]"
+            >
               <span>◫</span>
               My Projects
-              <span className="ml-auto text-[10px]">Soon</span>
-            </div>
+              <span className="ml-auto text-[10px]">
+                {projects.length}
+              </span>
+            </button>
 
             <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-gray-400">
               <span>▤</span>
@@ -596,7 +889,7 @@ export default function InteriorDesignerDashboard() {
             </p>
           </section>
 
-          {/* SUCCESS AND ERROR MESSAGES */}
+          {/* COMPANY SUCCESS AND ERROR MESSAGES */}
 
           {successMessage && (
             <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
@@ -613,8 +906,10 @@ export default function InteriorDesignerDashboard() {
           {/* CREATE / EDIT COMPANY FORM */}
 
           {showCompanyForm && (
-            <section className="mb-8 rounded-2xl border border-black/5 bg-white p-6 sm:p-8">
-
+            <section
+              id="company-information"
+              className="mb-8 rounded-2xl border border-black/5 bg-white p-6 sm:p-8"
+            >
               <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9a8065]">
@@ -830,9 +1125,6 @@ export default function InteriorDesignerDashboard() {
                 {/* SUBMIT, RESET AND DELETE */}
 
                 <div className="flex flex-col gap-3 border-t border-black/5 pt-6 sm:flex-row">
-
-                  {/* CREATE / UPDATE BUTTON */}
-
                   <button
                     type="submit"
                     disabled={saving}
@@ -845,8 +1137,6 @@ export default function InteriorDesignerDashboard() {
                         : "Create Company"}
                   </button>
 
-                  {/* RESET BUTTON */}
-
                   <button
                     type="button"
                     onClick={handleResetForm}
@@ -855,8 +1145,6 @@ export default function InteriorDesignerDashboard() {
                   >
                     Reset Form
                   </button>
-
-                  {/* DELETE BUTTON */}
 
                   {company && (
                     <button
@@ -868,7 +1156,6 @@ export default function InteriorDesignerDashboard() {
                       {saving ? "Processing..." : "Delete Company"}
                     </button>
                   )}
-
                 </div>
               </form>
             </section>
@@ -877,8 +1164,10 @@ export default function InteriorDesignerDashboard() {
           {/* COMPANY PROFILE */}
 
           {!showCompanyForm && (
-            <section className="mb-8 rounded-2xl border border-black/5 bg-white p-6 sm:p-8">
-
+            <section
+              id="company-information"
+              className="mb-8 rounded-2xl border border-black/5 bg-white p-6 sm:p-8"
+            >
               <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9a8065]">
@@ -930,7 +1219,6 @@ export default function InteriorDesignerDashboard() {
               >
                 Edit Company Information
               </button>
-
             </section>
           )}
 
@@ -938,7 +1226,6 @@ export default function InteriorDesignerDashboard() {
 
           {company && !showCompanyForm && (
             <section className="mb-8">
-
               <h2 className="mb-5 text-lg font-medium">
                 Company Information
               </h2>
@@ -988,9 +1275,377 @@ export default function InteriorDesignerDashboard() {
                     </div>
                   </div>
                 )}
-
             </section>
           )}
+
+          {/* ==================================================
+              MY PROJECTS
+          ================================================== */}
+
+          <section id="my-projects" className="mb-12 scroll-mt-8">
+
+            {/* PROJECT SECTION HEADER */}
+
+            <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+              <div>
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9a8065]">
+                  PORTFOLIO
+                </p>
+
+                <h2 className="text-2xl font-medium">
+                  My Projects
+                </h2>
+
+                <p className="mt-2 text-sm text-gray-400">
+                  Create and manage your interior design portfolio.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={openCreateProjectForm}
+                className="rounded-xl bg-[#252525] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#9a8065]"
+              >
+                + Add Project
+              </button>
+            </div>
+
+            {/* PROJECT SUCCESS AND ERROR MESSAGES */}
+
+            {projectSuccess && (
+              <div className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+                {projectSuccess}
+              </div>
+            )}
+
+            {projectError && (
+              <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+                {projectError}
+              </div>
+            )}
+
+            {/* CREATE / EDIT PROJECT FORM */}
+
+            {showProjectForm && (
+              <div className="mb-8 rounded-2xl border border-black/5 bg-white p-6 sm:p-8">
+                <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9a8065]">
+                      PROJECT DETAILS
+                    </p>
+
+                    <h3 className="mt-3 text-xl font-medium">
+                      {editingProject
+                        ? "Edit project"
+                        : "Create a new project"}
+                    </h3>
+
+                    <p className="mt-2 text-sm text-gray-400">
+                      Add the details of your interior design project.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={closeProjectForm}
+                    disabled={projectSaving}
+                    className="rounded-full border border-black/10 px-5 py-2.5 text-sm transition hover:bg-[#f5f3ef] disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <form
+                  onSubmit={handleSaveProject}
+                  className="space-y-6"
+                >
+                  {/* PROJECT TITLE */}
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">
+                      Project Title <span className="text-red-500">*</span>
+                    </label>
+
+                    <input
+                      type="text"
+                      required
+                      value={projectForm.title}
+                      onChange={(event) =>
+                        handleProjectInputChange(
+                          "title",
+                          event.target.value
+                        )
+                      }
+                      placeholder="e.g. Modern Minimalist Apartment"
+                      className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#9a8065]"
+                    />
+                  </div>
+
+                  {/* PROJECT CATEGORY */}
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">
+                      Category <span className="text-red-500">*</span>
+                    </label>
+
+                    <select
+                      required
+                      value={projectForm.categoryId}
+                      onChange={(event) =>
+                        handleProjectInputChange(
+                          "categoryId",
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#9a8065]"
+                    >
+                      <option value="">Select a category</option>
+
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    {categories.length === 0 && (
+                      <p className="mt-2 text-xs text-red-500">
+                        No project categories are available.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* PROJECT DESCRIPTION */}
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">
+                      Project Description
+                    </label>
+
+                    <textarea
+                      rows={5}
+                      value={projectForm.description}
+                      onChange={(event) =>
+                        handleProjectInputChange(
+                          "description",
+                          event.target.value
+                        )
+                      }
+                      placeholder="Describe the project, design concept, materials and key features..."
+                      className="w-full resize-none rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#9a8065]"
+                    />
+                  </div>
+
+                  {/* BUDGET */}
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">
+                      Project Budget
+                    </label>
+
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={projectForm.budget}
+                      onChange={(event) =>
+                        handleProjectInputChange(
+                          "budget",
+                          event.target.value
+                        )
+                      }
+                      placeholder="e.g. 50000"
+                      className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#9a8065]"
+                    />
+
+                    <p className="mt-2 text-xs text-gray-400">
+                      Enter the project budget. Leave blank if you do not wish to specify it.
+                    </p>
+                  </div>
+
+                  {/* COVER IMAGE */}
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">
+                      Cover Image URL
+                    </label>
+
+                    <input
+                      type="url"
+                      value={projectForm.coverImage}
+                      onChange={(event) =>
+                        handleProjectInputChange(
+                          "coverImage",
+                          event.target.value
+                        )
+                      }
+                      placeholder="https://example.com/project-image.jpg"
+                      className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#9a8065]"
+                    />
+
+                    <p className="mt-2 text-xs text-gray-400">
+                      Provide a publicly accessible image URL.
+                    </p>
+                  </div>
+
+                  {/* FORM ACTIONS */}
+
+                  <div className="flex flex-col gap-3 border-t border-black/5 pt-6 sm:flex-row">
+                    <button
+                      type="submit"
+                      disabled={projectSaving || categories.length === 0}
+                      className="rounded-xl bg-[#252525] px-6 py-4 text-sm font-medium text-white transition hover:bg-[#9a8065] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {projectSaving
+                        ? "Saving..."
+                        : editingProject
+                          ? "Update Project"
+                          : "Create Project"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProjectForm(
+                          editingProject
+                            ? {
+                                title: editingProject.title,
+                                description:
+                                  editingProject.description || "",
+                                categoryId: editingProject.categoryId,
+                                budget:
+                                  editingProject.budget !== null
+                                    ? String(editingProject.budget)
+                                    : "",
+                                coverImage:
+                                  editingProject.coverImage || "",
+                              }
+                            : { ...emptyProjectForm }
+                        );
+
+                        setProjectError("");
+                      }}
+                      disabled={projectSaving}
+                      className="rounded-xl border border-black/10 px-6 py-4 text-sm font-medium text-gray-600 transition hover:bg-[#f5f3ef] disabled:opacity-50"
+                    >
+                      Reset Form
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* PROJECT LIST */}
+
+            {projectsLoading ? (
+              <div className="rounded-2xl border border-black/5 bg-white p-10 text-center">
+                <p className="text-sm text-gray-400">
+                  Loading your projects...
+                </p>
+              </div>
+            ) : projects.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-black/10 bg-white px-6 py-16 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f3eee7] text-2xl">
+                  ◫
+                </div>
+
+                <h3 className="mt-5 text-lg font-medium">
+                  No projects yet
+                </h3>
+
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-400">
+                  Start building your portfolio by adding your first interior design project.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={openCreateProjectForm}
+                  className="mt-6 rounded-xl bg-[#252525] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#9a8065]"
+                >
+                  Create Your First Project
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                {projects.map((project) => (
+                  <article
+                    key={project.id}
+                    className="overflow-hidden rounded-2xl border border-black/5 bg-white"
+                  >
+                    {/* PROJECT COVER */}
+
+                    {project.coverImage ? (
+                      <img
+                        src={project.coverImage}
+                        alt={project.title}
+                        className="h-52 w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-52 w-full items-center justify-center bg-[#f3eee7] text-3xl text-[#9a8065]">
+                        ◫
+                      </div>
+                    )}
+
+                    {/* PROJECT INFORMATION */}
+
+                    <div className="p-5">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#9a8065]">
+                        {project.category}
+                      </p>
+
+                      <h3 className="mt-2 text-lg font-medium">
+                        {project.title}
+                      </h3>
+
+                      <p className="mt-2 min-h-12 text-sm leading-6 text-gray-400">
+                        {project.description || "No description provided."}
+                      </p>
+
+                      <div className="mt-5 border-t border-black/5 pt-4">
+                        <p className="text-xs text-gray-400">
+                          Project Budget
+                        </p>
+
+                        <p className="mt-1 text-sm font-medium">
+                          {project.budget !== null
+                            ? project.budget.toLocaleString("en-SG", {
+                                style: "currency",
+                                currency: "SGD",
+                                maximumFractionDigits: 2,
+                              })
+                            : "Not specified"}
+                        </p>
+                      </div>
+
+                      {/* PROJECT ACTIONS */}
+
+                      <div className="mt-5 flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openEditProjectForm(project)
+                          }
+                          className="flex-1 rounded-xl border border-black/10 px-4 py-3 text-sm font-medium transition hover:bg-[#f5f3ef]"
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDeleteProject(project)
+                          }
+                          className="flex-1 rounded-xl border border-red-200 px-4 py-3 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
 
           {/* WORKSPACE OVERVIEW */}
 
@@ -1037,14 +1692,21 @@ export default function InteriorDesignerDashboard() {
                 </h3>
 
                 <p className="mt-2 text-sm text-gray-400">
-                  Manage your current and past interior design projects.
+                  Manage your interior design portfolio and project information.
                 </p>
 
-                <p className="mt-6 text-sm font-medium text-gray-400">
-                  Project management coming next
-                </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    document
+                      .getElementById("my-projects")
+                      ?.scrollIntoView({ behavior: "smooth" })
+                  }
+                  className="mt-6 text-sm font-medium text-[#9a8065] hover:underline"
+                >
+                  Manage Projects ({projects.length}) →
+                </button>
               </div>
-
             </div>
           </section>
 
@@ -1055,7 +1717,6 @@ export default function InteriorDesignerDashboard() {
               space. — Interior Design Marketplace
             </p>
           </footer>
-
         </section>
       </div>
     </main>
