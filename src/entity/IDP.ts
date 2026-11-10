@@ -99,15 +99,43 @@ export class IDP {
           project.description ?? "",
           project.category_id,
           project.idp_categories?.name ?? "",
-          project.budget === null
-            ? null
-            : Number(project.budget),
+          project.budget === null ? null : Number(project.budget),
           project.status,
           project.cover_image,
           project.images ?? [],
           project.created_at
         )
     );
+  }
+
+  // Create a new interior designer project
+
+  public static async createProject(
+    designerId: string,
+    title: string,
+    description: string | null,
+    categoryId: string,
+    category: string,
+    budget: number | null,
+    coverImage: string | null,
+    images: string[]
+  ) {
+    const supabase = await createClient();
+
+    return await supabase
+      .from("interior_designer_projects")
+      .insert({
+        designer_id: designerId,
+        title,
+        description,
+        category_id: categoryId,
+        category,
+        budget,
+        cover_image: coverImage,
+        images,
+      })
+      .select()
+      .single();
   }
 
   // Retrieve all interior designer projects
@@ -195,4 +223,50 @@ export class IDP {
       error: null,
     };
   }
+
+  // Update an existing interior designer project
+
+  public static async updateProject(
+    id: string,
+    designerId: string,
+    title: string,
+    description: string | null,
+    categoryId: string,
+    category: string,
+    budget: number | null,
+    coverImage: string | null,
+    images: string[]
+  ) {
+    const supabase = await createClient();
+
+    return await supabase
+      .from("interior_designer_projects")
+      .update({
+        title,
+        description,
+        category_id: categoryId,
+        category,
+        budget,
+        cover_image: coverImage,
+        images,
+      })
+      .eq("id", id)
+      .eq("designer_id", designerId)
+      .select()
+      .single();
+  }
+
+  // Delete an existing interior designer project
+
+ public static async deleteProject(id: string, designerId: string) {
+  const supabase = await createClient();
+
+  return await supabase
+    .from("interior_designer_projects")
+    .delete()
+    .eq("id", id)
+    .eq("designer_id", designerId)
+    .select("id")
+    .maybeSingle();
+}
 }
