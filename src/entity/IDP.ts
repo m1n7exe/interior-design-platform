@@ -7,6 +7,7 @@ export class IDP {
   private designerId: string;
   private title: string;
   private description: string;
+  private categoryId: string;
   private category: string;
   private budget: number | null;
   private status: string;
@@ -19,6 +20,7 @@ export class IDP {
     designerId: string,
     title: string,
     description: string,
+    categoryId: string,
     category: string,
     budget: number | null,
     status: string,
@@ -30,6 +32,7 @@ export class IDP {
     this.designerId = designerId;
     this.title = title;
     this.description = description;
+    this.categoryId = categoryId;
     this.category = category;
     this.budget = budget;
     this.status = status;
@@ -54,6 +57,10 @@ export class IDP {
 
   public getDescription(): string {
     return this.description;
+  }
+
+  public getCategoryId(): string {
+    return this.categoryId;
   }
 
   public getCategory(): string {
@@ -90,7 +97,8 @@ export class IDP {
           project.designer_id,
           project.title,
           project.description ?? "",
-          project.category,
+          project.category_id,
+          project.idp_categories?.name ?? "",
           project.budget === null
             ? null
             : Number(project.budget),
@@ -109,7 +117,12 @@ export class IDP {
 
     const { data, error } = await supabase
       .from("interior_designer_projects")
-      .select("*")
+      .select(`
+        *,
+        idp_categories (
+          name
+        )
+      `)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -129,7 +142,12 @@ export class IDP {
 
     const { data, error } = await supabase
       .from("interior_designer_projects")
-      .select("*")
+      .select(`
+        *,
+        idp_categories (
+          name
+        )
+      `)
       .eq("designer_id", designerId)
       .order("created_at", { ascending: false });
 
@@ -157,7 +175,12 @@ export class IDP {
 
     const { data, error } = await supabase
       .from("interior_designer_projects")
-      .select("*")
+      .select(`
+        *,
+        idp_categories (
+          name
+        )
+      `)
       .in("id", projectIds);
 
     if (error) {
