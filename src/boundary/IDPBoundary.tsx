@@ -21,6 +21,7 @@ interface MarketplaceResponse {
   success: boolean;
   projects: IDPProject[];
   error: string | null;
+  categories?: string[];
 }
 
 interface FavouritesResponse {
@@ -54,6 +55,7 @@ export default function IDPBoundary() {
   const [projects, setProjects] = useState<IDPProject[]>([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
+  const [categoryNames, setCategoryNames] = useState<string[]>([]);
 
   // ==================================================
   // REQUEST STATE
@@ -139,6 +141,7 @@ export default function IDPBoundary() {
       }
 
       setProjects(result.projects ?? []);
+      setCategoryNames(result.categories ?? []);
     } catch (err) {
       console.error("Marketplace retrieval error:", err);
 
@@ -171,9 +174,18 @@ export default function IDPBoundary() {
         return;
       }
 
+
       const result =
         await parseApiResponse<FavouritesResponse>(response);
 
+
+      // Signed-in users who are not customers (e.g. designers) have no favourites.
+      if (result.error === "Customer profile not found") {
+        setFavouriteProjectIds(new Set());
+        return;
+      }
+
+      
       if (!response.ok || !result.success) {
         throw new Error(
           result.error || "Unable to retrieve favourites."
@@ -276,16 +288,14 @@ export default function IDPBoundary() {
   // ==================================================
 
   const categories = useMemo(() => {
-    const availableCategories = Array.from(
-      new Set(
-        projects
-          .map((project) => project.category)
-          .filter(Boolean)
-      )
-    ).sort();
+    const names = new Set<string>(categoryNames);
 
-    return ["All", ...availableCategories];
-  }, [projects]);
+    projects.forEach((project) => {
+      if (project.category) names.add(project.category);
+    });
+
+    return ["All", ...Array.from(names).sort()];
+  }, [categoryNames, projects]);
 
   // ==================================================
   // SEARCH AND FILTERING

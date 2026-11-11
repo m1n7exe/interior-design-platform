@@ -118,7 +118,8 @@ export class IDP {
     category: string,
     budget: number | null,
     coverImage: string | null,
-    images: string[]
+    images: string[],
+    status?: string
   ) {
     const supabase = await createClient();
 
@@ -133,6 +134,8 @@ export class IDP {
         budget,
         cover_image: coverImage,
         images,
+        ...(status ? { status } : {}),
+        
       })
       .select()
       .single();
@@ -235,7 +238,8 @@ export class IDP {
     category: string,
     budget: number | null,
     coverImage: string | null,
-    images: string[]
+    images: string[],
+    status?: string
   ) {
     const supabase = await createClient();
 
@@ -249,6 +253,7 @@ export class IDP {
         budget,
         cover_image: coverImage,
         images,
+        ...(status ? { status } : {}),
       })
       .eq("id", id)
       .eq("designer_id", designerId)

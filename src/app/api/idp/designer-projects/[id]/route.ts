@@ -93,7 +93,22 @@ export async function PATCH(
         : null;
 
     const images = Array.isArray(body.images) ? body.images : [];
+    const status =
+      body.status === undefined ? undefined : body.status;
 
+    if (
+      status !== undefined &&
+      status !== "DRAFT" &&
+      status !== "PUBLISHED"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Project status must be DRAFT or PUBLISHED.",
+        },
+        { status: 400 }
+      );
+    }
     if (!title || !categoryId) {
       return NextResponse.json(
         {
@@ -154,7 +169,8 @@ export async function PATCH(
       category.name,
       budget,
       coverImage,
-      images
+      images,
+      status
     );
 
     return NextResponse.json(result, {

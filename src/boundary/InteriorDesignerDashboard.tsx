@@ -53,6 +53,7 @@ interface IDPFormData {
   categoryId: string;
   budget: string;
   coverImage: string;
+  status: string;
 }
 
 const emptyCompany: CompanyInformation = {
@@ -73,6 +74,7 @@ const emptyProjectForm: IDPFormData = {
   categoryId: "",
   budget: "",
   coverImage: "",
+  status: "PUBLISHED",
 };
 
 // ==================================================
@@ -546,6 +548,7 @@ export default function InteriorDesignerDashboard() {
       budget:
         project.budget !== null ? String(project.budget) : "",
       coverImage: project.coverImage || "",
+      status: project.status,
     });
 
     setProjectError("");
@@ -620,6 +623,7 @@ export default function InteriorDesignerDashboard() {
           budget,
           coverImage: projectForm.coverImage.trim() || null,
           images: editingProject?.images || [],
+          status: projectForm.status,
         }),
       });
 
@@ -1414,6 +1418,24 @@ export default function InteriorDesignerDashboard() {
                       </p>
                     )}
                   </div>
+                  {/* VISIBILITY */}
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">
+                      Visibility
+                    </label>
+
+                    <select
+                      value={projectForm.status}
+                      onChange={(event) =>
+                        handleProjectInputChange("status", event.target.value)
+                      }
+                      className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#9a8065]"
+                    >
+                      <option value="PUBLISHED">Published (visible to customers)</option>
+                      <option value="DRAFT">Draft (only visible to you)</option>
+                    </select>
+                  </div>
 
                   {/* PROJECT DESCRIPTION */}
 
@@ -1519,6 +1541,7 @@ export default function InteriorDesignerDashboard() {
                                     : "",
                                 coverImage:
                                   editingProject.coverImage || "",
+                                  status: editingProject.status,
                               }
                             : { ...emptyProjectForm }
                         );
@@ -1592,6 +1615,16 @@ export default function InteriorDesignerDashboard() {
                       <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#9a8065]">
                         {project.category}
                       </p>
+                      
+                      <span
+                        className={`mt-2 inline-block rounded-full px-3 py-1 text-[10px] font-medium ${
+                          project.status === "PUBLISHED"
+                            ? "bg-green-50 text-green-700"
+                            : "bg-[#f5f3ef] text-gray-500"
+                        }`}
+                      >
+                        {project.status === "PUBLISHED" ? "Published" : "Draft"}
+                      </span>
 
                       <h3 className="mt-2 text-lg font-medium">
                         {project.title}
