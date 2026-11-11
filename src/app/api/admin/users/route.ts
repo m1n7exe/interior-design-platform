@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     !body.email.trim() ||
     typeof body.password !== "string" ||
     body.password.length < 8 ||
-    !["CUSTOMER", "INTERIOR_DESIGNER"].includes(body.role)
+    !["CUSTOMER", "INTERIOR_DESIGNER", "PLATFORM_MANAGEMENT"].includes(body.role)
   ) {
     return Response.json(
       { error: "Invalid account details" },

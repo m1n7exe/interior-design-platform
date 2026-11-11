@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthController } from "@/controller/AuthController";
 
-type Role = "CUSTOMER" | "INTERIOR_DESIGNER";
+type Role = "CUSTOMER" | "INTERIOR_DESIGNER" | "PLATFORM_MANAGEMENT";
 
 type Account = {
   id: string;
@@ -25,6 +25,11 @@ export default function AdminDashboard() {
   const [messageType, setMessageType] = useState<"success" | "error">("success");
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [editingUser, setEditingUser] = useState<Account | null>(null);
+  const [deletingUser, setDeletingUser] = useState<Account | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPassword, setEditPassword] = useState("");
 
   const router = useRouter();
 
@@ -32,6 +37,7 @@ export default function AdminDashboard() {
     setMessage(text);
     setMessageType(type);
   };
+
 
   const getAccounts = useCallback(async () => {
     try {
@@ -129,24 +135,76 @@ export default function AdminDashboard() {
     }
   }
 
-  async function deleteAccount(id: string) {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this account? This action cannot be undone."
-    );
+  const updateAccount = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
-    if (!confirmed) return;
+    if (!editingUser) return;
 
     setLoading(true);
     setMessage("");
 
     try {
-      const response = await fetch(`/api/admin/users/${id}`, {
+      const updates: {
+        name: string;
+        email: string;
+        password?: string;
+      } = {
+        name: editName.trim(),
+        email: editEmail.trim(),
+      };
+
+      if (editPassword.trim().length > 0) {
+        updates.password = editPassword;
+      }
+
+      const response = await fetch(`/api/admin/users/${editingUser.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updates),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to update account.");
+      }
+
+      setMessage("Account updated successfully.");
+      setMessageType("success");
+
+      setEditingUser(null);
+      setEditName("");
+      setEditEmail("");
+      setEditPassword("");
+
+      await getAccounts();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Something went wrong."
+      );
+      setMessageType("error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  async function deleteAccount() {
+    if (!deletingUser) return;
+
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/admin/users/${deletingUser.id}`, {
         method: "DELETE",
       });
 
       const result = await response.json();
 
       if (response.ok && result.success) {
+        setDeletingUser(null);
         showMessage("Account deleted successfully.", "success");
         await getAccounts();
       } else {
@@ -369,6 +427,7 @@ export default function AdminDashboard() {
                 >
                   <option value="CUSTOMER">Customer</option>
                   <option value="INTERIOR_DESIGNER">Interior designer</option>
+                  <option value="PLATFORM_MANAGEMENT">Platform management</option>
                 </select>
               </div>
 
@@ -484,14 +543,31 @@ export default function AdminDashboard() {
                         </td>
 
                         <td className="px-5 py-4 text-right sm:px-7">
-                          <button
-                            type="button"
-                            onClick={() => void deleteAccount(user.id)}
-                            disabled={loading}
-                            className="rounded-lg border border-[#ead8d4] px-3 py-2 text-xs font-medium text-[#a24f43] transition hover:bg-[#fbefed] disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Delete
-                          </button>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingUser(user);
+                                setEditName(user.user_metadata?.name ?? "");
+                                setEditEmail(user.email ?? "");
+                                setEditPassword("");
+                                setMessage("");
+                              }}
+                              disabled={loading}
+                              className="rounded-lg border border-[#d9c9a8] px-3 py-2 text-xs font-medium text-[#75613d] transition hover:bg-[#f8f3e9] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Update
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setDeletingUser(user)}
+                              disabled={loading}
+                              className="rounded-lg border border-[#ead8d4] px-3 py-2 text-xs font-medium text-[#a24f43] transition hover:bg-[#fbefed] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -533,9 +609,192 @@ export default function AdminDashboard() {
           <p>Account management</p>
         </footer>
       </div>
+
+
+      {/* Update account modal */}
+      {editingUser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !loading) {
+              setEditingUser(null);
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-account-title"
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <h2
+                  id="edit-account-title"
+                  className="text-xl font-semibold text-[#35332d]"
+                >
+                  Update account
+                </h2>
+                <p className="mt-1 text-sm text-[#817d72]">
+                  Edit this user's account details.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setEditingUser(null)}
+                disabled={loading}
+                aria-label="Close update account dialog"
+                className="rounded-lg px-3 py-2 text-sm text-[#817d72] hover:bg-[#f5f2ec] disabled:opacity-50"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={updateAccount} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="edit-account-name"
+                  className="mb-2 block text-sm font-medium text-[#4c4a42]"
+                >
+                  Full name
+                </label>
+                <input
+                  id="edit-account-name"
+                  type="text"
+                  autoComplete="name"
+                  value={editName}
+                  onChange={(event) => setEditName(event.target.value)}
+                  required
+                  maxLength={100}
+                  disabled={loading}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="edit-account-email"
+                  className="mb-2 block text-sm font-medium text-[#4c4a42]"
+                >
+                  Email address
+                </label>
+                <input
+                  id="edit-account-email"
+                  type="email"
+                  autoComplete="email"
+                  value={editEmail}
+                  onChange={(event) => setEditEmail(event.target.value)}
+                  required
+                  disabled={loading}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="edit-account-password"
+                  className="mb-2 block text-sm font-medium text-[#4c4a42]"
+                >
+                  New password
+                </label>
+                <input
+                  id="edit-account-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={editPassword}
+                  onChange={(event) => setEditPassword(event.target.value)}
+                  minLength={8}
+                  disabled={loading}
+                  placeholder="Leave blank to keep current password"
+                  className={inputClass}
+                />
+                <p className="mt-2 text-xs leading-5 text-[#999488]">
+                  Only enter a password if you want to change it. Use at least 8 characters.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  disabled={loading}
+                  className="rounded-lg border border-[#e5dfd2] px-4 py-2.5 text-sm font-medium text-[#5e5a50] hover:bg-[#f8f6f1] disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={loading || !editName.trim() || !editEmail.trim()}
+                  className="rounded-lg bg-[#75613d] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#5f4e32] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? "Updating..." : "Save changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+
+      {/* Delete account confirmation modal */}
+      {deletingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-account-title"
+            aria-describedby="delete-account-description"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-[#fbefed] text-lg text-[#a24f43]">
+              !
+            </div>
+            <h2
+              id="delete-account-title"
+              className="text-xl font-semibold text-[#35332d]"
+            >
+              Delete account?
+            </h2>
+            <p
+              id="delete-account-description"
+              className="mt-2 text-sm leading-6 text-[#817d72]"
+            >
+              You are about to permanently delete{" "}
+              <span className="font-semibold text-[#4c4a42]">
+                {deletingUser.user_metadata?.name ?? deletingUser.email ?? "this user"}
+              </span>
+              . This action cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingUser(null)}
+                disabled={loading}
+                className="rounded-lg border border-[#e5dfd2] px-4 py-2.5 text-sm font-medium text-[#5e5a50] hover:bg-[#f8f6f1] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void deleteAccount()}
+                disabled={loading}
+                className="rounded-lg bg-[#a24f43] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#873f35] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading ? "Deleting..." : "Delete account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
+
+    
   );
 }
+
 
 function StatCard({
   label,
@@ -567,18 +826,23 @@ function StatCard({
 function RoleBadge({ role }: { role: string }) {
   const isDesigner = role === "INTERIOR_DESIGNER";
   const isCustomer = role === "CUSTOMER";
+  const isPlatform = role === "PLATFORM_MANAGEMENT";
 
   const label = isDesigner
     ? "Interior designer"
     : isCustomer
       ? "Customer"
-      : role;
+      : isPlatform
+        ? "Platform management"
+        : role;
 
   const styles = isDesigner
     ? "bg-[#f0edf7] text-[#68538d]"
     : isCustomer
       ? "bg-[#edf3e9] text-[#527047]"
-      : "bg-[#f1efe9] text-[#777369]";
+      : isPlatform
+        ? "bg-[#f8f3e9] text-[#75613d]"
+        : "bg-[#f1efe9] text-[#777369]";
 
   return (
     <span

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { IDP } from "@/entity/IDP";
+import { IDPCategory } from "@/entity/IDPCategory";
 
 // Create IDP Controller
 export class IDPCreationController {
@@ -12,7 +13,8 @@ export class IDPCreationController {
     category: string,
     budget: number | null,
     coverImage: string | null,
-    images: string[]
+    images: string[],
+    status?: string
   ) {
     if (!designerId) {
       throw new Error("Designer ID is required.");
@@ -37,6 +39,13 @@ export class IDPCreationController {
       throw new Error("Project images must be an array.");
     }
 
+      if (
+      status !== undefined &&
+      !["DRAFT", "PUBLISHED"].includes(status)
+    ) {
+      throw new Error("Project status must be DRAFT or PUBLISHED.");
+    }
+
     const { data, error } = await IDP.createProject(
       designerId,
       title.trim(),
@@ -45,7 +54,8 @@ export class IDPCreationController {
       category,
       budget,
       coverImage,
-      images
+      images,
+      status
     );
 
     return {
@@ -60,7 +70,10 @@ export class IDPCreationController {
 export class IDPRetrievalController {
   // Retrieve projects for the customer marketplace
   public async getMarketplaceProjects() {
-    const { data, error } = await IDP.getProjects();
+    const [{ data, error }, categoryResult] = await Promise.all([
+      IDP.getProjects(),
+      IDPCategory.searchCategories(""),
+    ]);
 
     return {
       success: !error,
@@ -77,6 +90,9 @@ export class IDPRetrievalController {
         images: project.getImages(),
         createdAt: project.getCreatedAt(),
       })),
+      categories: (categoryResult.data ?? []).map((category) =>
+        category.getName()
+      ),
       error: error?.message ?? null,
     };
   }
@@ -121,7 +137,8 @@ export class IDPUpdateController {
     category: string,
     budget: number | null,
     coverImage: string | null,
-    images: string[]
+    images: string[],
+    status?: string
   ) {
     if (!id) {
       throw new Error("Project ID is required.");
@@ -149,6 +166,12 @@ export class IDPUpdateController {
     if (!Array.isArray(images)) {
       throw new Error("Project images must be an array.");
     }
+        if (
+      status !== undefined &&
+      !["DRAFT", "PUBLISHED"].includes(status)
+    ) {
+      throw new Error("Project status must be DRAFT or PUBLISHED.");
+    }
 
     const { data, error } = await IDP.updateProject(
       id,
@@ -159,7 +182,8 @@ export class IDPUpdateController {
       category,
       budget,
       coverImage,
-      images
+      images,
+      status
     );
 
     return {

@@ -8,7 +8,7 @@ export class AdminAccountController {
     name: string,
     email: string,
     password: string,
-    role: "CUSTOMER" | "INTERIOR_DESIGNER"
+    role: "CUSTOMER" | "INTERIOR_DESIGNER" | "PLATFORM_MANAGEMENT"
   ) {
     const { data, error } = await Admin.createAccount(
       name,
@@ -47,5 +47,19 @@ export class AdminRetrievalController {
       users: data?.users ?? [],
       error: error?.message ?? null,
     };
+  }
+}
+
+// Handles account updates.
+export class AdminUpdateController {
+  public async updateAccount(
+    id: string,
+    updates: {
+      name?: string;
+      email?: string;
+      password?: string;
+    }
+  ) {
+    return await Admin.updateAccount(id, updates);
   }
 }

@@ -93,6 +93,10 @@ export default function LoginPage() {
           router.replace("/InteriorDesignerDashboard");
           break;
 
+        case "PLATFORM_MANAGEMENT":
+          router.replace("/PlatformManagementDashboard");
+          break;
+
         default:
           setError("Your account has an unrecognised role. Please contact support.");
           return;
