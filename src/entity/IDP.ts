@@ -14,6 +14,7 @@ export class IDP {
   private coverImage: string | null;
   private images: string[];
   private createdAt: string;
+  private archivedAt: string | null;
 
   constructor(
     id: string,
@@ -26,7 +27,8 @@ export class IDP {
     status: string,
     coverImage: string | null,
     images: string[],
-    createdAt: string
+    createdAt: string,
+    archivedAt: string | null
   ) {
     this.id = id;
     this.designerId = designerId;
@@ -39,9 +41,8 @@ export class IDP {
     this.coverImage = coverImage;
     this.images = images;
     this.createdAt = createdAt;
+    this.archivedAt = archivedAt;
   }
-
-  // Getters
 
   public getId(): string {
     return this.id;
@@ -87,7 +88,9 @@ export class IDP {
     return this.createdAt;
   }
 
-  // Convert database records into IDP entities
+  public getArchivedAt(): string | null {
+    return this.archivedAt;
+  }
 
   private static mapToEntities(data: any[]): IDP[] {
     return data.map(
@@ -103,12 +106,11 @@ export class IDP {
           project.status,
           project.cover_image,
           project.images ?? [],
-          project.created_at
+          project.created_at,
+          project.archived_at ?? null
         )
     );
   }
-
-  // Create a new interior designer project
 
   public static async createProject(
     designerId: string,
@@ -135,14 +137,12 @@ export class IDP {
         cover_image: coverImage,
         images,
         ...(status ? { status } : {}),
-        
       })
       .select()
       .single();
   }
 
-  // Retrieve all interior designer projects
-
+  // Retrieve published, non-archived projects for the customer marketplace.
   public static async getProjects() {
     const supabase = await createClient();
 
@@ -154,6 +154,8 @@ export class IDP {
           name
         )
       `)
+      .eq("status", "PUBLISHED")
+      .is("archived_at", null)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -165,8 +167,6 @@ export class IDP {
       error: null,
     };
   }
-
-  // Retrieve projects belonging to a specific designer
 
   public static async getProjectsByDesigner(designerId: string) {
     const supabase = await createClient();
@@ -191,8 +191,6 @@ export class IDP {
       error: null,
     };
   }
-
-  // Retrieve projects using a list of project IDs
 
   public static async getProjectsByIds(projectIds: string[]) {
     if (!projectIds.length) {
@@ -227,8 +225,6 @@ export class IDP {
     };
   }
 
-  // Update an existing interior designer project
-
   public static async updateProject(
     id: string,
     designerId: string,
@@ -261,17 +257,78 @@ export class IDP {
       .single();
   }
 
-  // Delete an existing interior designer project
+  public static async setArchived(
+    id: string,
+    designerId: string,
+    archived: boolean
+  ) {
+    const supabase = await createClient();
 
- public static async deleteProject(id: string, designerId: string) {
-  const supabase = await createClient();
+    return await supabase
+      .from("interior_designer_projects")
+      .update({
+        archived_at: archived ? new Date().toISOString() : null,
+      })
+      .eq("id", id)
+      .eq("designer_id", designerId)
+      .select("id, archived_at")
+      .maybeSingle();
+  }
 
-  return await supabase
-    .from("interior_designer_projects")
-    .delete()
-    .eq("id", id)
-    .eq("designer_id", designerId)
-    .select("id")
-    .maybeSingle();
-}
+  public static async deleteProject(id: string, designerId: string) {
+    const supabase = await createClient();
+
+    return await supabase
+      .from("interior_designer_projects")
+      .delete()
+      .eq("id", id)
+      .eq("designer_id", designerId)
+      .select("id")
+      .maybeSingle();
+  }
+
+  public static async recordProjectView(
+    projectId: string,
+    viewerId: string
+  ) {
+    const supabase = await createClient();
+
+    return await supabase
+      .from("idp_project_views")
+      .insert({
+        project_id: projectId,
+        viewer_id: viewerId,
+      })
+      .select("id")
+      .single();
+  }
+
+  public static async getTotalViewsByDesigner(designerId: string) {
+    const supabase = await createClient();
+
+    const { data: projects, error: projectError } = await supabase
+      .from("interior_designer_projects")
+      .select("id")
+      .eq("designer_id", designerId);
+
+    if (projectError) {
+      return { count: 0, error: projectError };
+    }
+
+    const projectIds = (projects ?? []).map((project) => project.id);
+
+    if (projectIds.length === 0) {
+      return { count: 0, error: null };
+    }
+
+    const { count, error } = await supabase
+      .from("idp_project_views")
+      .select("id", { count: "exact", head: true })
+      .in("project_id", projectIds);
+
+    return {
+      count: count ?? 0,
+      error,
+    };
+  }
 }

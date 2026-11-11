@@ -28,10 +28,7 @@ export class IDPCreationController {
       throw new Error("Project category is required.");
     }
 
-    if (
-      budget !== null &&
-      (!Number.isFinite(budget) || budget < 0)
-    ) {
+    if (budget !== null && (!Number.isFinite(budget) || budget < 0)) {
       throw new Error("Budget must be a valid non-negative number.");
     }
 
@@ -39,10 +36,7 @@ export class IDPCreationController {
       throw new Error("Project images must be an array.");
     }
 
-      if (
-      status !== undefined &&
-      !["DRAFT", "PUBLISHED"].includes(status)
-    ) {
+    if (status !== undefined && !["DRAFT", "PUBLISHED"].includes(status)) {
       throw new Error("Project status must be DRAFT or PUBLISHED.");
     }
 
@@ -68,7 +62,6 @@ export class IDPCreationController {
 
 // Retrieve IDP Controller
 export class IDPRetrievalController {
-  // Retrieve projects for the customer marketplace
   public async getMarketplaceProjects() {
     const [{ data, error }, categoryResult] = await Promise.all([
       IDP.getProjects(),
@@ -89,6 +82,7 @@ export class IDPRetrievalController {
         coverImage: project.getCoverImage(),
         images: project.getImages(),
         createdAt: project.getCreatedAt(),
+        archivedAt: project.getArchivedAt(),
       })),
       categories: (categoryResult.data ?? []).map((category) =>
         category.getName()
@@ -97,14 +91,12 @@ export class IDPRetrievalController {
     };
   }
 
-  // Retrieve projects belonging to a specific designer
   public async getDesignerProjects(designerId: string) {
     if (!designerId) {
       throw new Error("Designer ID is required.");
     }
 
-    const { data, error } =
-      await IDP.getProjectsByDesigner(designerId);
+    const { data, error } = await IDP.getProjectsByDesigner(designerId);
 
     return {
       success: !error,
@@ -120,6 +112,7 @@ export class IDPRetrievalController {
         coverImage: project.getCoverImage(),
         images: project.getImages(),
         createdAt: project.getCreatedAt(),
+        archivedAt: project.getArchivedAt(),
       })),
       error: error?.message ?? null,
     };
@@ -156,20 +149,15 @@ export class IDPUpdateController {
       throw new Error("Project category is required.");
     }
 
-    if (
-      budget !== null &&
-      (!Number.isFinite(budget) || budget < 0)
-    ) {
+    if (budget !== null && (!Number.isFinite(budget) || budget < 0)) {
       throw new Error("Budget must be a valid non-negative number.");
     }
 
     if (!Array.isArray(images)) {
       throw new Error("Project images must be an array.");
     }
-        if (
-      status !== undefined &&
-      !["DRAFT", "PUBLISHED"].includes(status)
-    ) {
+
+    if (status !== undefined && !["DRAFT", "PUBLISHED"].includes(status)) {
       throw new Error("Project status must be DRAFT or PUBLISHED.");
     }
 
@@ -194,7 +182,73 @@ export class IDPUpdateController {
   }
 }
 
-// Delete IDP Controller
+// Archive / Restore IDP Controller
+export class IDPArchiveController {
+  public async setArchived(
+    id: string,
+    designerId: string,
+    archived: boolean
+  ) {
+    if (!id) {
+      throw new Error("Project ID is required.");
+    }
+
+    if (!designerId) {
+      throw new Error("Designer ID is required.");
+    }
+
+    const { data, error } = await IDP.setArchived(
+      id,
+      designerId,
+      archived
+    );
+
+    return {
+      success: !error && !!data,
+      project: data ?? null,
+      error:
+        error?.message ??
+        (!data
+          ? "Project not found or you do not have permission to update it."
+          : null),
+    };
+  }
+}
+
+// Project View Controller
+export class IDPViewController {
+  public async recordProjectView(projectId: string, viewerId: string) {
+    if (!projectId) {
+      throw new Error("Project ID is required.");
+    }
+
+    if (!viewerId) {
+      throw new Error("Viewer ID is required.");
+    }
+
+    const { data, error } = await IDP.recordProjectView(projectId, viewerId);
+
+    return {
+      success: !error && !!data,
+      error: error?.message ?? null,
+    };
+  }
+
+  public async getTotalViewsByDesigner(designerId: string) {
+    if (!designerId) {
+      throw new Error("Designer ID is required.");
+    }
+
+    const { count, error } = await IDP.getTotalViewsByDesigner(designerId);
+
+    return {
+      success: !error,
+      totalViews: count,
+      error: error?.message ?? null,
+    };
+  }
+}
+
 // Delete IDP Controller
 export class IDPDeletionController {
   public async deleteProject(id: string, designerId: string) {

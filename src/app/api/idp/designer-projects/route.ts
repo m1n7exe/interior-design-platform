@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   IDPCreationController,
   IDPRetrievalController,
+  IDPViewController,
 } from "@/controller/IDPController";
 
 // Authenticate the user and verify their designer role.
@@ -50,7 +51,7 @@ async function getAuthenticatedDesigner() {
   };
 }
 
-// GET: Retrieve the authenticated designer's projects and available categories.
+// GET: Retrieve the authenticated designer's projects, categories, and total project views.
 export async function GET() {
   try {
     const auth = await getAuthenticatedDesigner();
@@ -63,15 +64,19 @@ export async function GET() {
     }
 
     const controller = new IDPRetrievalController();
+    const viewController = new IDPViewController();
 
-    const [projectResult, categoryResult] = await Promise.all([
-      controller.getDesignerProjects(auth.user.id),
+    const [projectResult, categoryResult, viewResult] =
+      await Promise.all([
+        controller.getDesignerProjects(auth.user.id),
 
-      auth.supabase
-        .from("idp_categories")
-        .select("id, name")
-        .order("name", { ascending: true }),
-    ]);
+        auth.supabase
+          .from("idp_categories")
+          .select("id, name")
+          .order("name", { ascending: true }),
+
+        viewController.getTotalViewsByDesigner(auth.user.id),
+      ]);
 
     if (!projectResult.success) {
       return NextResponse.json(
@@ -93,10 +98,21 @@ export async function GET() {
       );
     }
 
+    if (!viewResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: viewResult.error,
+        },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       projects: projectResult.projects,
       categories: categoryResult.data ?? [],
+      totalViews: viewResult.totalViews,
     });
   } catch (error) {
     console.error("Retrieve designer projects error:", error);
@@ -147,6 +163,7 @@ export async function POST(request: NextRequest) {
         : null;
 
     const images = Array.isArray(body.images) ? body.images : [];
+
     const status =
       body.status === undefined ? undefined : body.status;
 
@@ -163,6 +180,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
     if (!title || !categoryId) {
       return NextResponse.json(
         {
@@ -197,11 +215,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Retrieve the actual category name from the database.
-    const { data: category, error: categoryError } = await auth.supabase
-      .from("idp_categories")
-      .select("id, name")
-      .eq("id", categoryId)
-      .maybeSingle();
+    const { data: category, error: categoryError } =
+      await auth.supabase
+        .from("idp_categories")
+        .select("id, name")
+        .eq("id", categoryId)
+        .maybeSingle();
 
     if (categoryError || !category) {
       return NextResponse.json(

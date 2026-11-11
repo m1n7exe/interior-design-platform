@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   IDPUpdateController,
   IDPDeletionController,
+  IDPArchiveController,
 } from "@/controller/IDPController";
 
 async function getAuthenticatedDesigner() {
@@ -53,7 +54,7 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-// PATCH: Update an existing project belonging to the authenticated designer.
+// PATCH: Update, archive, or restore an existing designer project.
 export async function PATCH(
   request: NextRequest,
   context: RouteContext
@@ -70,6 +71,20 @@ export async function PATCH(
 
     const { id } = await context.params;
     const body = await request.json();
+
+    // Archive and restore update only archived_at; project status is preserved.
+    if (body.action === "archive" || body.action === "restore") {
+      const archiveController = new IDPArchiveController();
+      const result = await archiveController.setArchived(
+        id,
+        auth.user.id,
+        body.action === "archive"
+      );
+
+      return NextResponse.json(result, {
+        status: result.success ? 200 : 404,
+      });
+    }
 
     const title =
       typeof body.title === "string" ? body.title.trim() : "";
@@ -109,6 +124,7 @@ export async function PATCH(
         { status: 400 }
       );
     }
+
     if (!title || !categoryId) {
       return NextResponse.json(
         {
@@ -208,7 +224,6 @@ export async function DELETE(
     }
 
     const { id } = await context.params;
-
     const controller = new IDPDeletionController();
 
     const result = await controller.deleteProject(
