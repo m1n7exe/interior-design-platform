@@ -9,6 +9,7 @@ type Role = "CUSTOMER" | "INTERIOR_DESIGNER" | "PLATFORM_MANAGEMENT";
 type Account = {
   id: string;
   email?: string;
+  status?: "ACTIVE" | "SUSPENDED";
   user_metadata?: {
     name?: string;
     role?: string;
@@ -294,6 +295,39 @@ export default function AdminDashboard() {
     }
   }
 
+  async function toggleStatus(user: Account) {
+  const next = user.status === "SUSPENDED" ? "ACTIVE" : "SUSPENDED";
+
+  setLoading(true);
+  setMessage("");
+
+  try {
+    const response = await fetch(`/api/admin/users/${user.id}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: next }),
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, status: next } : u))
+      );
+      showMessage(
+        next === "SUSPENDED" ? "Account suspended." : "Account reactivated.",
+        "success"
+      );
+    } else {
+      showMessage(result.error ?? "Unable to change account status.", "error");
+    }
+  } catch {
+    showMessage("A network error occurred.", "error");
+  } finally {
+    setLoading(false);
+  }
+}
+
   const inputClass =
     "w-full rounded-xl border border-[#e5e1d8] bg-[#fcfbf9] px-4 py-3 text-sm text-[#25251f] outline-none transition placeholder:text-[#aaa69c] focus:border-[#777468] focus:ring-2 focus:ring-[#777468]/10 disabled:opacity-60";
 
@@ -572,7 +606,7 @@ export default function AdminDashboard() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[650px] text-left">
+              <table className="w-full min-w-[780px] text-left">
                 <thead>
                   <tr className="border-b border-[#eeeae3] bg-white">
                     <th className="px-5 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#999488] sm:px-7">
@@ -583,6 +617,9 @@ export default function AdminDashboard() {
                     </th>
                     <th className="px-5 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#999488]">
                       Role
+                    </th>
+                    <th className="px-5 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#999488]">
+                      Status
                     </th>
                     <th className="px-5 py-4 text-right text-[10px] font-semibold uppercase tracking-[0.16em] text-[#999488] sm:px-7">
                       Actions
@@ -622,9 +659,35 @@ export default function AdminDashboard() {
                         <td className="px-5 py-4">
                           <RoleBadge role={userRole} />
                         </td>
-
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium ${
+                              user.status === "SUSPENDED"
+                                ? "bg-[#fbefed] text-[#923f35]"
+                                : "bg-[#edf3e9] text-[#527047]"
+                            }`}
+                          >
+                            <span className="mr-2 h-1.5 w-1.5 rounded-full bg-current" />
+                            {user.status === "SUSPENDED" ? "Suspended" : "Active"}
+                          </span>
+                        </td>
                         <td className="px-5 py-4 text-right sm:px-7">
                           <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void toggleStatus(user);
+                              }}
+                              disabled={loading}
+                              className={`rounded-lg border px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                                user.status === "SUSPENDED"
+                                  ? "border-[#d7e2d0] text-[#527047] hover:bg-[#edf3e9]"
+                                  : "border-[#ead8d4] text-[#a24f43] hover:bg-[#fbefed]"
+                              }`}
+                            >
+                              {user.status === "SUSPENDED" ? "Activate" : "Suspend"}
+                            </button>
                             <button
                               type="button"
                               onClick={(event) => {
@@ -656,7 +719,7 @@ export default function AdminDashboard() {
 
                   {filteredUsers.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-6 py-16 text-center">
+                      <td colSpan={5} className="px-6 py-16 text-center">
                         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#f1efe9] text-xl text-[#817c71]">
                           ⌕
                         </div>

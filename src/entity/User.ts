@@ -28,10 +28,43 @@ export abstract class User {
   public static async login(email: string, password: string) {
     const supabase = createClient();
 
-    return await supabase.auth.signInWithPassword({
+    const result = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+
+    // Accounts banned through Supabase Auth are rejected here
+    if (result.error) {
+      if (result.error.message.toLowerCase().includes("banned")) {
+        return {
+          data: { user: null, session: null },
+          error: new Error(
+            "Your account has been suspended. Please contact support."
+          ),
+        };
+      }
+      return result;
+    }
+
+    // Check the status column
+    const { data: profile } = await supabase
+      .from("users")
+      .select("status")
+      .eq("id", result.data.user.id)
+      .maybeSingle();
+
+    if (profile?.status === "SUSPENDED") {
+      await supabase.auth.signOut();
+
+      return {
+        data: { user: null, session: null },
+        error: new Error(
+          "Your account has been suspended. Please contact support."
+        ),
+      };
+    }
+
+    return result;
   }
 
   public static async logout() {
