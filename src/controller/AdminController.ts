@@ -48,6 +48,15 @@ export class AdminRetrievalController {
       error: error?.message ?? null,
     };
   }
+  public async getAccount(id: string) {
+    const { data, error } = await Admin.getAccount(id);
+
+    return {
+      success: !error && !!data,
+      profile: data ?? null,
+      error: error?.message ?? null,
+    };
+  }
 }
 
 // Handles account updates.
@@ -58,6 +67,11 @@ export class AdminUpdateController {
       name?: string;
       email?: string;
       password?: string;
+      username?: string | null;
+      phoneNumber?: string | null;
+      location?: string | null;
+      profilePhotoUrl?: string | null;
+    
     }
   ) {
     return await Admin.updateAccount(id, updates);

@@ -4,7 +4,7 @@ import { CustomerServer } from "@/entity/CustomerServer";
 import { IDP } from "@/entity/IDP";
 
 export class CustomerFavouritesController {
-  public async getFavourites() {
+  public async getFavourites(searchTerm: string = "") {
     const { customerId, error: customerError } =
       await CustomerServer.getAuthenticatedCustomerId();
 
@@ -36,7 +36,7 @@ export class CustomerFavouritesController {
     }
 
     const { data: projects, error: projectsError } =
-      await IDP.getProjectsByIds(projectIds);
+      await IDP.getProjectsByIds(projectIds, searchTerm);
 
     if (projectsError) {
       console.error("Favourite project retrieval error:", projectsError);
@@ -64,6 +64,11 @@ export class CustomerFavouritesController {
       })),
       error: null,
     };
+  }
+
+  // Search the customer's favourites by title, description or category
+  public async searchFavourites(searchTerm: string) {
+    return await this.getFavourites(searchTerm.trim().slice(0, 100));
   }
 
   public async addFavourite(projectId: string) {
