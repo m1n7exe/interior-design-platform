@@ -147,6 +147,10 @@ export default function InteriorDesignerDashboard() {
   const [editingProject, setEditingProject] =
     useState<IDPProject | null>(null);
 
+  // Selected project for the View modal
+  const [viewingProject, setViewingProject] =
+    useState<IDPProject | null>(null);
+
   const [projectForm, setProjectForm] =
     useState<IDPFormData>(emptyProjectForm);
 
@@ -777,6 +781,35 @@ export default function InteriorDesignerDashboard() {
   }
 
   // ==================================================
+  // VIEW PROJECT
+  // ==================================================
+
+  function openViewProjectModal(project: IDPProject) {
+    setViewingProject(project);
+  }
+
+  // ==================================================
+  // CLOSE VIEW PROJECT MODAL
+  // ==================================================
+
+  function closeViewProjectModal() {
+    setViewingProject(null);
+  }
+
+  // ==================================================
+  // EDIT PROJECT FROM VIEW MODAL
+  // ==================================================
+
+  function handleEditViewedProject() {
+    if (!viewingProject) return;
+
+    const project = viewingProject;
+
+    setViewingProject(null);
+    openEditProjectForm(project);
+  }
+
+  // ==================================================
   // DUPLICATE PROJECT
   // ==================================================
 
@@ -1027,6 +1060,10 @@ export default function InteriorDesignerDashboard() {
       }
 
       setProjectSuccess("Your project has been deleted successfully.");
+
+      if (viewingProject?.id === project.id) {
+        setViewingProject(null);
+      }
 
       await loadProjects();
     } catch (error) {
@@ -2146,6 +2183,17 @@ export default function InteriorDesignerDashboard() {
                       {/* PROJECT ACTIONS */}
 
                       <div className="mt-5 flex flex-wrap gap-2">
+
+                        {/* VIEW PROJECT BUTTON */}
+
+                        <button
+                          type="button"
+                          onClick={() => openViewProjectModal(project)}
+                          className="flex-1 rounded-xl bg-[#252525] px-3 py-3 text-sm font-medium text-white transition hover:bg-[#9a8065]"
+                        >
+                          View
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => openEditProjectForm(project)}
@@ -2282,6 +2330,267 @@ export default function InteriorDesignerDashboard() {
           </footer>
         </section>
       </div>
+
+      {/* ==================================================
+          VIEW PROJECT MODAL
+      ================================================== */}
+
+      {viewingProject && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
+          onClick={closeViewProjectModal}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="view-project-title"
+            className="relative my-auto max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+
+            {/* MODAL HEADER */}
+
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black/5 bg-white px-6 py-5 sm:px-8">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9a8065]">
+                  PROJECT DETAILS
+                </p>
+
+                <h2
+                  id="view-project-title"
+                  className="mt-2 text-xl font-medium"
+                >
+                  Project Information
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeViewProjectModal}
+                aria-label="Close project details"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 text-xl text-gray-500 transition hover:bg-[#f5f3ef] hover:text-black"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* MODAL CONTENT */}
+
+            <div className="p-6 sm:p-8">
+
+              {/* PROJECT COVER IMAGE */}
+
+              {viewingProject.coverImage ? (
+                <img
+                  src={viewingProject.coverImage}
+                  alt={viewingProject.title}
+                  className="h-64 w-full rounded-xl object-cover sm:h-80"
+                />
+              ) : (
+                <div className="flex h-64 w-full items-center justify-center rounded-xl bg-[#f3eee7] text-5xl text-[#9a8065] sm:h-80">
+                  ◫
+                </div>
+              )}
+
+              {/* PROJECT TITLE AND STATUS */}
+
+              <div className="mt-6">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-[#f5f3ef] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#9a8065]">
+                    {viewingProject.category}
+                  </span>
+
+                  <span
+                    className={`rounded-full px-3 py-1 text-[10px] font-medium ${
+                      viewingProject.status === "PUBLISHED"
+                        ? "bg-green-50 text-green-700"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {viewingProject.status === "PUBLISHED"
+                      ? "Published"
+                      : "Draft"}
+                  </span>
+
+                  {viewingProject.archivedAt && (
+                    <span className="rounded-full bg-orange-50 px-3 py-1 text-[10px] font-medium text-orange-700">
+                      Archived
+                    </span>
+                  )}
+                </div>
+
+                <h3 className="mt-4 text-2xl font-medium tracking-tight sm:text-3xl">
+                  {viewingProject.title}
+                </h3>
+              </div>
+
+              {/* PROJECT DESCRIPTION */}
+
+              <div className="mt-8 border-t border-black/5 pt-6">
+                <h4 className="text-sm font-semibold">
+                  Project Description
+                </h4>
+
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-gray-500">
+                  {viewingProject.description ||
+                    "No project description has been provided."}
+                </p>
+              </div>
+
+              {/* PROJECT INFORMATION */}
+
+              <div className="mt-8 border-t border-black/5 pt-6">
+                <h4 className="text-sm font-semibold">
+                  Project Information
+                </h4>
+
+                <div className="mt-5 grid gap-5 sm:grid-cols-2">
+
+                  {/* CATEGORY */}
+
+                  <div className="rounded-xl bg-[#faf9f6] p-5">
+                    <p className="text-xs text-gray-400">
+                      Project Category
+                    </p>
+
+                    <p className="mt-2 text-sm font-medium">
+                      {viewingProject.category || "Not specified"}
+                    </p>
+                  </div>
+
+                  {/* BUDGET */}
+
+                  <div className="rounded-xl bg-[#faf9f6] p-5">
+                    <p className="text-xs text-gray-400">
+                      Project Budget
+                    </p>
+
+                    <p className="mt-2 text-sm font-medium">
+                      {viewingProject.budget !== null
+                        ? viewingProject.budget.toLocaleString("en-SG", {
+                            style: "currency",
+                            currency: "SGD",
+                            maximumFractionDigits: 2,
+                          })
+                        : "Not specified"}
+                    </p>
+                  </div>
+
+                  {/* VISIBILITY */}
+
+                  <div className="rounded-xl bg-[#faf9f6] p-5">
+                    <p className="text-xs text-gray-400">
+                      Visibility
+                    </p>
+
+                    <p className="mt-2 text-sm font-medium">
+                      {viewingProject.status === "PUBLISHED"
+                        ? "Published — visible to customers"
+                        : "Draft — only visible to you"}
+                    </p>
+                  </div>
+
+                  {/* CREATED DATE */}
+
+                  <div className="rounded-xl bg-[#faf9f6] p-5">
+                    <p className="text-xs text-gray-400">
+                      Date Created
+                    </p>
+
+                    <p className="mt-2 text-sm font-medium">
+                      {viewingProject.createdAt
+                        ? new Date(viewingProject.createdAt).toLocaleDateString(
+                            "en-SG",
+                            {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                            }
+                          )
+                        : "Not available"}
+                    </p>
+                  </div>
+
+                  {/* ARCHIVED DATE */}
+
+                  {viewingProject.archivedAt && (
+                    <div className="rounded-xl bg-orange-50 p-5 sm:col-span-2">
+                      <p className="text-xs text-orange-600">
+                        Archived Date
+                      </p>
+
+                      <p className="mt-2 text-sm font-medium text-orange-700">
+                        {new Date(
+                          viewingProject.archivedAt
+                        ).toLocaleDateString("en-SG", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* PROJECT GALLERY */}
+
+              {viewingProject.images &&
+                viewingProject.images.length > 0 && (
+                  <div className="mt-8 border-t border-black/5 pt-6">
+                    <h4 className="text-sm font-semibold">
+                      Project Gallery
+                    </h4>
+
+                    <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {viewingProject.images.map((image, index) => (
+                        <img
+                          key={`${image}-${index}`}
+                          src={image}
+                          alt={`${viewingProject.title} - Image ${index + 1}`}
+                          className="h-36 w-full rounded-xl object-cover sm:h-40"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              {/* PROJECT ID */}
+
+              <div className="mt-8 border-t border-black/5 pt-6">
+                <p className="text-xs text-gray-400">
+                  Project ID
+                </p>
+
+                <p className="mt-2 break-all font-mono text-xs text-gray-500">
+                  {viewingProject.id}
+                </p>
+              </div>
+
+              {/* MODAL ACTIONS */}
+
+              <div className="mt-8 flex flex-col gap-3 border-t border-black/5 pt-6 sm:flex-row">
+
+                <button
+                  type="button"
+                  onClick={handleEditViewedProject}
+                  className="flex-1 rounded-xl bg-[#252525] px-6 py-4 text-sm font-medium text-white transition hover:bg-[#9a8065]"
+                >
+                  Edit Project
+                </button>
+
+                <button
+                  type="button"
+                  onClick={closeViewProjectModal}
+                  className="flex-1 rounded-xl border border-black/10 px-6 py-4 text-sm font-medium text-gray-600 transition hover:bg-[#f5f3ef]"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
