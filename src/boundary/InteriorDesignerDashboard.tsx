@@ -121,6 +121,7 @@ export default function InteriorDesignerDashboard() {
   const [designerName, setDesignerName] = useState("Designer");
 
   const [company, setCompany] = useState<CompanyInformation | null>(null);
+  const [companySearch, setCompanySearch] = useState("");
   const [formData, setFormData] =
     useState<CompanyInformation>(emptyCompany);
 
@@ -168,6 +169,11 @@ export default function InteriorDesignerDashboard() {
     useState<string | null>(null);
 
   const [imageUploading, setImageUploading] = useState(false);
+
+  // Additional gallery images (separate from the cover image).
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
 
   // ==================================================
   // PROJECT SORTING AND FILTERING
@@ -679,7 +685,41 @@ export default function InteriorDesignerDashboard() {
   // RESET PROJECT IMAGE STATE
   // ==================================================
 
+  function resetGalleryState(images: string[] = []) {
+    galleryPreviews.forEach((url) => URL.revokeObjectURL(url));
+    setGalleryFiles([]);
+    setGalleryPreviews([]);
+    setGalleryImages(images);
+  }
+
+  function handleGalleryImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!files.length) return;
+    if (files.some((file) => !IMAGE_TYPES.includes(file.type))) {
+      setProjectError("Please upload JPG, PNG or WebP images.");
+      return;
+    }
+    if (files.some((file) => file.size > MAX_IMAGE_SIZE)) {
+      setProjectError("Each image must be smaller than 5 MB.");
+      return;
+    }
+    setProjectError("");
+    setGalleryFiles((previous) => [...previous, ...files]);
+    setGalleryPreviews((previous) => [
+      ...previous,
+      ...files.map((file) => URL.createObjectURL(file)),
+    ]);
+  }
+
+  function removeGalleryFile(index: number) {
+    URL.revokeObjectURL(galleryPreviews[index]);
+    setGalleryFiles((previous) => previous.filter((_, i) => i !== index));
+    setGalleryPreviews((previous) => previous.filter((_, i) => i !== index));
+  }
+
   function resetProjectImageState() {
+    resetGalleryState();
     if (projectCoverPreview?.startsWith("blob:")) {
       URL.revokeObjectURL(projectCoverPreview);
     }
@@ -770,6 +810,7 @@ export default function InteriorDesignerDashboard() {
     });
 
     setProjectCoverPreview(project.coverImage || null);
+    setGalleryImages(project.images || []);
 
     setProjectError("");
     setProjectSuccess("");
@@ -829,6 +870,7 @@ export default function InteriorDesignerDashboard() {
     });
 
     setProjectCoverPreview(project.coverImage || null);
+    setGalleryImages(project.images || []);
 
     setProjectError("");
     setProjectSuccess("");
@@ -901,6 +943,24 @@ export default function InteriorDesignerDashboard() {
 
       // Upload the selected image, if one was provided.
       const coverImage = await uploadProjectImage();
+      const images = [...galleryImages];
+      if (galleryFiles.length > 0) {
+        setImageUploading(true);
+        for (const file of galleryFiles) {
+          const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+          const path = `${userId}/${crypto.randomUUID()}.${extension}`;
+          const { error: uploadError } = await supabase.storage
+            .from(STORAGE_BUCKET)
+            .upload(path, file, {
+              cacheControl: "3600",
+              upsert: false,
+              contentType: file.type,
+            });
+          if (uploadError) throw new Error(uploadError.message);
+          const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+          images.push(data.publicUrl);
+        }
+      }
 
       const endpoint = editingProject
         ? `/api/idp/designer-projects/${editingProject.id}`
@@ -917,7 +977,7 @@ export default function InteriorDesignerDashboard() {
           categoryId: projectForm.categoryId,
           budget,
           coverImage,
-          images: editingProject?.images || [],
+          images,
           status: projectForm.status,
         }),
       });
@@ -1584,6 +1644,17 @@ export default function InteriorDesignerDashboard() {
                 Company Information
               </h2>
 
+              <input
+                type="search"
+                aria-label="Search your company information"
+                placeholder="Search company information (email, address, specialisations...)"
+                value={companySearch}
+                onChange={(event) => setCompanySearch(event.target.value)}
+                className="mb-5 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#9a8065]"
+              />
+
+              {companySearch.trim() && (
+                <>
               <div className="grid gap-4 sm:grid-cols-2">
                 {[
                   ["Company Email", company.email],
@@ -1596,7 +1667,14 @@ export default function InteriorDesignerDashboard() {
                       : null,
                   ],
                   ["Company Address", company.address],
-                ].map(([label, value]) => (
+                ]
+                  .filter(([label, value]) =>
+                    !companySearch.trim() ||
+                    `${label} ${value ?? ""}`
+                      .toLowerCase()
+                      .includes(companySearch.trim().toLowerCase())
+                  )
+                  .map(([label, value]) => (
                   <div
                     key={label}
                     className="rounded-2xl border border-black/5 bg-white p-6"
@@ -1610,14 +1688,25 @@ export default function InteriorDesignerDashboard() {
               </div>
 
               {company.specialisations &&
-                company.specialisations.length > 0 && (
+                company.specialisations.length > 0 &&
+                (!companySearch.trim() ||
+                  "specialisations".includes(companySearch.trim().toLowerCase()) ||
+                  company.specialisations.some((item) =>
+                    item.toLowerCase().includes(companySearch.trim().toLowerCase())
+                  )) && (
                   <div className="mt-4 rounded-2xl border border-black/5 bg-white p-6">
                     <p className="text-xs text-gray-400">
                       Specialisations
                     </p>
 
                     <div className="mt-4 flex flex-wrap gap-2">
-                      {company.specialisations.map((specialisation) => (
+                      {company.specialisations
+                        .filter((specialisation) =>
+                          !companySearch.trim() ||
+                          "specialisations".includes(companySearch.trim().toLowerCase()) ||
+                          specialisation.toLowerCase().includes(companySearch.trim().toLowerCase())
+                        )
+                        .map((specialisation) => (
                         <span
                           key={specialisation}
                           className="rounded-full bg-[#f5f3ef] px-4 py-2 text-xs font-medium"
@@ -1628,6 +1717,23 @@ export default function InteriorDesignerDashboard() {
                     </div>
                   </div>
                 )}
+
+              {companySearch.trim() &&
+                ![
+                  ["Company Email", company.email],
+                  ["Contact Number", company.phone],
+                  ["Website", company.website],
+                  ["Years of Experience", company.years_of_experience != null ? `${company.years_of_experience} years` : null],
+                  ["Company Address", company.address],
+                ].some(([label, value]) =>
+                  `${label} ${value ?? ""}`.toLowerCase().includes(companySearch.trim().toLowerCase())
+                ) &&
+                !(company.specialisations?.some((item) => item.toLowerCase().includes(companySearch.trim().toLowerCase())) ||
+                  "specialisations".includes(companySearch.trim().toLowerCase())) && (
+                  <p className="mt-4 text-sm text-gray-400">No matching company information found.</p>
+                )}
+                </>
+              )}
             </section>
           )}
 
@@ -2000,6 +2106,53 @@ export default function InteriorDesignerDashboard() {
                     </p>
                   </div>
 
+                  {/* ADDITIONAL PROJECT IMAGES */}
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">
+                      Additional Project Images
+                    </label>
+                    <div className="rounded-xl border border-dashed border-black/20 bg-[#faf9f6] p-5">
+                      <label className="flex cursor-pointer flex-col items-center justify-center py-6 text-center">
+                        <span className="mb-3 text-4xl text-[#9a8065]">↑</span>
+                        <span className="text-sm font-medium">Upload multiple images</span>
+                        <span className="mt-2 text-xs text-gray-400">
+                          JPG, PNG or WebP · Maximum 5 MB per image
+                        </span>
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={handleGalleryImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                      {(galleryImages.length > 0 || galleryPreviews.length > 0) && (
+                        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+                          {galleryImages.map((url, index) => (
+                            <div key={`existing-${index}`} className="relative">
+                              <img src={url} alt={`Gallery image ${index + 1}`} className="aspect-square w-full rounded-xl object-cover" />
+                              <button type="button" aria-label="Remove gallery image"
+                                onClick={() => setGalleryImages((previous) => previous.filter((_, i) => i !== index))}
+                                className="absolute right-2 top-2 rounded-full bg-white px-2 py-1 text-xs text-red-600 shadow">
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                          {galleryPreviews.map((url, index) => (
+                            <div key={url} className="relative">
+                              <img src={url} alt={`New gallery image ${index + 1}`} className="aspect-square w-full rounded-xl object-cover" />
+                              <button type="button" aria-label="Remove selected image"
+                                onClick={() => removeGalleryFile(index)}
+                                className="absolute right-2 top-2 rounded-full bg-white px-2 py-1 text-xs text-red-600 shadow">
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* FORM ACTIONS */}
 
                   <div className="flex flex-col gap-3 border-t border-black/5 pt-6 sm:flex-row">
@@ -2025,6 +2178,7 @@ export default function InteriorDesignerDashboard() {
                       type="button"
                       onClick={() => {
                         resetProjectImageState();
+                        setGalleryImages(editingProject?.images || []);
 
                         setProjectForm(
                           editingProject
