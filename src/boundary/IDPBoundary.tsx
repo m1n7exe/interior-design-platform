@@ -33,16 +33,27 @@ interface IDPProject {
 }
 
 interface DesignerProfile {
+
   user_id: string;
+
   company_name: string | null;
+
   bio: string | null;
+
   logo_url: string | null;
+
   website: string | null;
+
   phone: string | null;
+
   email: string | null;
+
   address: string | null;
+
   years_of_experience: number | null;
+
   specialisations: string[] | null;
+
 }
 
 interface MarketplaceResponse {
@@ -161,47 +172,76 @@ const [selectedProject, setSelectedProject] =
 
 const supabase = useMemo(() => createClient(), []);
 
-  const [designerProfile, setDesignerProfile] = useState<DesignerProfile | null>(null);
-  const [designerLoading, setDesignerLoading] = useState(false);
-  const [designerError, setDesignerError] = useState<string | null>(null);
+const [designerProfile, setDesignerProfile] = useState<DesignerProfile | null>(null);
 
-  // Change this if your designer profile table has a different name.
-  const designerTable = "interior_designers";
+const [designerLoading, setDesignerLoading] = useState(false);
+
+const [designerError, setDesignerError] = useState<string | null>(null);
+
+// Change this if your designer profile table has a different name.
+
+const designerTable = "interior_designers";
 
   useEffect(() => {
+
     if (!selectedProject?.designerId) {
+
       setDesignerProfile(null);
+
       setDesignerError(null);
+
       setDesignerLoading(false);
-      return;
+
+return;
+
     }
 
-    let cancelled = false;
+let cancelled = false;
+
     setDesignerProfile(null);
+
     setDesignerError(null);
+
     setDesignerLoading(true);
 
-    const loadDesigner = async () => {
-      const { data, error } = await supabase
+const loadDesigner = async () => {
+
+const { data, error } = await supabase
+
         .from(designerTable)
+
         .select("user_id, company_name, bio, logo_url, website, phone, email, address, years_of_experience, specialisations")
+
         .eq("user_id", selectedProject.designerId)
+
         .maybeSingle();
 
       if (cancelled) return;
+
       if (error) {
+
         console.error("Designer profile retrieval error:", error);
+
         setDesignerError("Unable to load designer details.");
+
       } else if (!data) {
+
         setDesignerError("Designer profile is unavailable.");
+
       } else {
+
         setDesignerProfile(data as DesignerProfile);
+
       }
+
       setDesignerLoading(false);
+
     };
 
     void loadDesigner();
-    return () => { cancelled = true; };
+
+return () => { cancelled = true; };
+
   }, [selectedProject?.designerId, supabase]);
 
 // ==================================================
@@ -773,18 +813,6 @@ return (
             </a>
 
           </div>
-
-          <a
-
-            href="/login"
-
-            className="rounded-full bg-[#252525] px-5 py-2.5 text-sm text-white transition hover:bg-black"
-
-          >
-
-            Sign In
-
-          </a>
 
         </div>
 
@@ -1635,51 +1663,97 @@ return (
               </div>
 
               {/* INTERIOR DESIGNER PROFILE */}
+
               <section className="mt-8 rounded-2xl border border-gray-200 bg-[#faf9f6] p-6">
+
                 <h4 className="text-lg font-semibold">About the Interior Designer</h4>
+
                 {designerLoading ? (
+
                   <p className="mt-4 text-sm text-gray-500">Loading designer details...</p>
+
                 ) : designerError ? (
+
                   <p className="mt-4 text-sm text-gray-500">{designerError}</p>
+
                 ) : designerProfile ? (
+
                   <div className="mt-5 space-y-5">
+
                     <div className="flex items-center gap-4">
+
                       {designerProfile.logo_url ? (
+
                         <img src={designerProfile.logo_url} alt={`${designerProfile.company_name || "Designer"} logo`}
+
                           className="h-16 w-16 rounded-xl border border-gray-200 bg-white object-contain" />
+
                       ) : (
+
                         <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-[#e8e1d7] text-2xl font-semibold text-[#80684f]">
+
                           {(designerProfile.company_name || "ID").slice(0, 2).toUpperCase()}
+
                         </div>
+
                       )}
+
                       <div>
+
                         <h5 className="text-xl font-semibold">{designerProfile.company_name || "Interior Designer"}</h5>
+
                         {designerProfile.years_of_experience != null && (
+
                           <p className="mt-1 text-sm text-gray-600">{designerProfile.years_of_experience} years of experience</p>
+
                         )}
+
                       </div>
+
                     </div>
+
                     {designerProfile.bio && <p className="text-sm leading-7 text-gray-700">{designerProfile.bio}</p>}
+
                     {designerProfile.specialisations?.length ? (
+
                       <div>
+
                         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Specialisations</p>
+
                         <div className="flex flex-wrap gap-2">
+
                           {designerProfile.specialisations.map((item) => (
+
                             <span key={item} className="rounded-full bg-[#e8e1d7] px-3 py-1 text-xs text-[#80684f]">{item}</span>
+
                           ))}
+
                         </div>
+
                       </div>
+
                     ) : null}
+
                     <div className="grid gap-3 text-sm sm:grid-cols-2">
+
                       {designerProfile.address && <p><span className="font-semibold">Address:</span> {designerProfile.address}</p>}
+
                       {designerProfile.phone && <p><span className="font-semibold">Phone:</span> <a className="underline" href={`tel:${designerProfile.phone}`}>{designerProfile.phone}</a></p>}
+
                       {designerProfile.email && <p><span className="font-semibold">Email:</span> <a className="break-all underline" href={`mailto:${designerProfile.email}`}>{designerProfile.email}</a></p>}
+
                       {designerProfile.website && /^https?:\/\//i.test(designerProfile.website) && (
+
                         <p><span className="font-semibold">Website:</span> <a className="break-all underline" href={designerProfile.website} target="_blank" rel="noopener noreferrer">Visit website</a></p>
+
                       )}
+
                     </div>
+
                   </div>
+
                 ) : null}
+
               </section>
 
               {/* PROJECT GALLERY */}
