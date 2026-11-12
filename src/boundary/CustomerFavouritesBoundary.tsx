@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -22,6 +22,8 @@ export default function CustomerFavouritesBoundary() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const requestId = useRef(0);
 
   // Supabase client
   const supabase = useMemo(() => createClient(), []);
@@ -49,18 +51,29 @@ export default function CustomerFavouritesBoundary() {
     [supabase]
   );
 
-  // Retrieve saved projects
-  const loadFavourites = useCallback(async () => {
+  // Retrieve saved projects (optionally searching through the API)
+  const loadFavourites = useCallback(async (term: string) => {
+    const currentRequest = ++requestId.current;
+
     try {
-      setLoading(true);
       setError(null);
 
-      const response = await fetch("/api/idp/favourites", {
-        method: "GET",
-        cache: "no-store",
-      });
+      const trimmed = term.trim();
+
+      const response = await fetch(
+        trimmed
+          ? `/api/idp/favourites?q=${encodeURIComponent(trimmed)}`
+          : "/api/idp/favourites",
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
 
       const result = await response.json();
+
+      // Ignore out-of-date responses while the user is still typing
+      if (currentRequest !== requestId.current) return;
 
       if (!response.ok || !result.success) {
         throw new Error(
@@ -74,19 +87,29 @@ export default function CustomerFavouritesBoundary() {
           : []
       );
     } catch (err) {
+      if (currentRequest !== requestId.current) return;
+
       setError(
         err instanceof Error
           ? err.message
           : "Unable to retrieve your saved projects."
       );
     } finally {
-      setLoading(false);
+      if (currentRequest === requestId.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
+  // Search as the user types (short delay avoids a request per keystroke)
   useEffect(() => {
-    loadFavourites();
-  }, [loadFavourites]);
+    const timer = setTimeout(
+      () => void loadFavourites(search),
+      search ? 300 : 0
+    );
+
+    return () => clearTimeout(timer);
+  }, [search, loadFavourites]);
 
   // Remove saved project
   async function handleRemove(projectId: string) {
@@ -159,11 +182,50 @@ export default function CustomerFavouritesBoundary() {
 
             {!loading && (
               <span className="text-sm text-gray-400">
-                {projects.length} saved
+                {projects.length} {search.trim() ? "found" : "saved"}
               </span>
             )}
           </div>
+          {/* Search */}
+          <div className="mb-6">
+            <div className="relative max-w-md">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="m21 21-4.35-4.35m1.85-5.15a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
+                />
+              </svg>
 
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search saved projects..."
+                aria-label="Search saved projects"
+                className="w-full rounded-lg border border-gray-200 bg-white py-3 pl-12 pr-10 text-sm outline-none transition focus:border-[#9a8065] focus:ring-2 focus:ring-[#9a8065]/10"
+              />
+
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  aria-label="Clear search"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xl text-gray-400 transition hover:text-black"
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+          </div>
           {/* Loading */}
           {loading ? (
             <div className="py-24 text-center text-sm text-gray-400">
@@ -176,12 +238,33 @@ export default function CustomerFavouritesBoundary() {
               <p className="text-sm text-red-600">{error}</p>
 
               <button
-                onClick={loadFavourites}
+                onClick={() => loadFavourites(search)}
                 className="mt-4 text-sm font-medium text-gray-900 underline"
               >
                 Try again
               </button>
             </div>
+
+          /* No search results */
+          ) : projects.length === 0 && search.trim() ? (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white/60 px-6 py-16 text-center">
+              <h3 className="text-base font-semibold text-gray-900">
+                No matching saved projects
+              </h3>
+
+              <p className="mt-2 text-sm text-gray-500">
+                Try another title, description or category.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="mt-5 text-sm font-medium text-gray-900 underline"
+              >
+                Clear search
+              </button>
+            </div>
+
 
           /* Empty */
           ) : projects.length === 0 ? (

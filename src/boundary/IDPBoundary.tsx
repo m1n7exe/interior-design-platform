@@ -56,7 +56,7 @@ interface FavouritesResponse {
 
   success: boolean;
 
-  favourites?: string[];
+  favourites?: (string | { id: string })[];
 
   error?: string | null;
 
@@ -69,8 +69,6 @@ async function parseApiResponse<T>(
 ): Promise<T> {
 
 const text = await response.text();
-
-
 
   try {
 
@@ -307,9 +305,11 @@ return;
 
 
       setFavouriteProjectIds(
-
-        new Set(result.favourites ?? [])
-
+        new Set(
+          (result.favourites ?? []).map((favourite) =>
+            typeof favourite === "string" ? favourite : favourite.id
+          )
+        )
       );
 
     } catch (err) {

@@ -1,11 +1,40 @@
-import { AdminUpdateController } from "@/controller/AdminController";
-import { AdminDeletionController } from "@/controller/AdminController";
+import {
+  AdminUpdateController,
+  AdminDeletionController,
+  AdminRetrievalController,
+} from "@/controller/AdminController";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { createClient } from "@/lib/supabase/server";
 import { Admin } from "@/entity/Admin";
 
 const updateController = new AdminUpdateController();
 const controller = new AdminDeletionController();
+const retrievalController = new AdminRetrievalController();
+
+
+
+// View one account's profile
+export async function GET(
+  request: Request,
+  context: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  if (!(await requireAdmin())) {
+    return Response.json(
+      { success: false, error: "Forbidden" },
+      { status: 403 }
+    );
+  }
+
+  const { id } = await context.params;
+
+  const result = await retrievalController.getAccount(id);
+
+  return Response.json(result, {
+    status: result.success ? 200 : 404,
+  });
+}
 
 
 export async function PATCH(
@@ -30,6 +59,10 @@ export async function PATCH(
     name?: string;
     email?: string;
     password?: string;
+    username?: string | null;
+    phoneNumber?: string | null;
+    location?: string | null;
+    profilePhotoUrl?: string | null;
   };
 
   try {
@@ -50,10 +83,23 @@ export async function PATCH(
   const password =
     typeof body.password === "string" ? body.password : undefined;
 
+      // undefined = not provided, null = clear the value
+  const readOptional = (value: unknown): string | null | undefined => {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    if (typeof value === "string") return value.trim() || null;
+    return undefined;
+  };
+
+  const username = readOptional(body.username);
+  const phoneNumber = readOptional(body.phoneNumber);
+  const location = readOptional(body.location);
+  const profilePhotoUrl = readOptional(body.profilePhotoUrl);
+
   if (
-    name === undefined &&
-    email === undefined &&
-    password === undefined
+    [name, email, password, username, phoneNumber, location, profilePhotoUrl].every(
+      (value) => value === undefined
+    )
   ) {
     return Response.json(
       { success: false, error: "No changes were provided." },
@@ -85,12 +131,44 @@ export async function PATCH(
     );
   }
 
+    if (username && username.length > 50) {
+    return Response.json(
+      { success: false, error: "Username must be 50 characters or fewer." },
+      { status: 400 }
+    );
+  }
+
+  if (phoneNumber && phoneNumber.length > 30) {
+    return Response.json(
+      { success: false, error: "Phone number must be 30 characters or fewer." },
+      { status: 400 }
+    );
+  }
+
+  if (location && location.length > 100) {
+    return Response.json(
+      { success: false, error: "Location must be 100 characters or fewer." },
+      { status: 400 }
+    );
+  }
+
+  if (profilePhotoUrl && profilePhotoUrl.length > 500) {
+    return Response.json(
+      { success: false, error: "Profile photo link is too long." },
+      { status: 400 }
+    );
+  }
+
   // 4. Update the account using the server-side Admin entity.
   try {
     const result = await updateController.updateAccount(id, {
       name,
       email,
       password,
+      username,
+      phoneNumber,
+      location,
+      profilePhotoUrl,
     });
 
     if (!result.success) {
