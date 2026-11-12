@@ -192,7 +192,12 @@ export class IDP {
     };
   }
 
-  public static async getProjectsByIds(projectIds: string[]) {
+  // Retrieve projects using a list of project IDs (optionally filtered by a search term)
+
+  public static async getProjectsByIds(
+    projectIds: string[],
+    searchTerm?: string
+  ) {
     if (!projectIds.length) {
       return {
         data: [],
@@ -202,7 +207,7 @@ export class IDP {
 
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("interior_designer_projects")
       .select(`
         *,
@@ -211,6 +216,17 @@ export class IDP {
         )
       `)
       .in("id", projectIds);
+
+    // Remove characters that have special meaning in a PostgREST filter
+    const cleaned = (searchTerm ?? "").replace(/[,()%*\\]/g, " ").trim();
+
+    if (cleaned) {
+      query = query.or(
+        `title.ilike.%${cleaned}%,description.ilike.%${cleaned}%,category.ilike.%${cleaned}%`
+      );
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       return {

@@ -15,6 +15,18 @@ type Account = {
   };
 };
 
+type Profile = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  createdAt: string;
+  username: string | null;
+  phoneNumber: string | null;
+  location: string | null;
+  profilePhotoUrl: string | null;
+};
+
 export default function AdminDashboard() {
   const [users, setUsers] = useState<Account[]>([]);
   const [name, setName] = useState("");
@@ -30,6 +42,11 @@ export default function AdminDashboard() {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPassword, setEditPassword] = useState("");
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [editUsername, setEditUsername] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editPhotoUrl, setEditPhotoUrl] = useState("");
 
   const router = useRouter();
 
@@ -134,7 +151,55 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   }
+  // Retrieve a user's full profile through the API
+  async function fetchProfile(id: string): Promise<Profile | null> {
+    try {
+      const response = await fetch(`/api/admin/users/${id}`, {
+        cache: "no-store",
+      });
+      const result = await response.json();
 
+      if (response.ok && result.success) {
+        return result.profile as Profile;
+      }
+
+      showMessage(result.error ?? "Unable to retrieve profile.", "error");
+    } catch {
+      showMessage("Unable to connect to the server.", "error");
+    }
+
+    return null;
+  }
+
+  // Click a row: show the user's profile details
+  async function viewProfile(user: Account) {
+    setMessage("");
+
+    const result = await fetchProfile(user.id);
+
+    if (result) setProfile(result);
+  }
+
+  // Open the update form pre-filled with the full profile
+  async function openUpdate(user: Account) {
+    setMessage("");
+
+    const result = await fetchProfile(user.id);
+
+    if (!result) return;
+
+    setProfile(null);
+    setEditingUser(user);
+    setEditName(result.name);
+    setEditEmail(result.email);
+    setEditPassword("");
+    setEditUsername(result.username ?? "");
+    setEditPhone(result.phoneNumber ?? "");
+    setEditLocation(result.location ?? "");
+    setEditPhotoUrl(result.profilePhotoUrl ?? "");
+
+    console.log("openUpdate: editingUser set", user.id);
+  }
   const updateAccount = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -148,9 +213,17 @@ export default function AdminDashboard() {
         name: string;
         email: string;
         password?: string;
+        username: string | null;
+        phoneNumber: string | null;
+        location: string | null;
+        profilePhotoUrl: string | null;
       } = {
         name: editName.trim(),
         email: editEmail.trim(),
+        username: editUsername.trim() || null,
+        phoneNumber: editPhone.trim() || null,
+        location: editLocation.trim() || null,
+        profilePhotoUrl: editPhotoUrl.trim() || null,
       };
 
       if (editPassword.trim().length > 0) {
@@ -178,6 +251,10 @@ export default function AdminDashboard() {
       setEditName("");
       setEditEmail("");
       setEditPassword("");
+      setEditUsername("");
+      setEditPhone("");
+      setEditLocation("");
+      setEditPhotoUrl("");
 
       await getAccounts();
     } catch (error) {
@@ -521,16 +598,20 @@ export default function AdminDashboard() {
                     return (
                       <tr
                         key={user.id}
-                        className="transition-colors hover:bg-[#fcfbf8]"
+                        onClick={() => void viewProfile(user)}
+                        className="cursor-pointer transition-colors hover:bg-[#fcfbf8]"
                       >
                         <td className="px-5 py-4 sm:px-7">
                           <div className="flex items-center gap-3">
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#efede6] text-sm font-semibold text-[#5d5a50]">
                               {userName.charAt(0).toUpperCase()}
                             </div>
-                            <span className="text-sm font-medium text-[#37362f]">
+                            <button
+                              type="button"
+                              className="text-left text-sm font-medium text-[#37362f]"
+                            >
                               {userName}
-                            </span>
+                            </button>
                           </div>
                         </td>
 
@@ -546,12 +627,9 @@ export default function AdminDashboard() {
                           <div className="flex justify-end gap-2">
                             <button
                               type="button"
-                              onClick={() => {
-                                setEditingUser(user);
-                                setEditName(user.user_metadata?.name ?? "");
-                                setEditEmail(user.email ?? "");
-                                setEditPassword("");
-                                setMessage("");
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void openUpdate(user);
                               }}
                               disabled={loading}
                               className="rounded-lg border border-[#d9c9a8] px-3 py-2 text-xs font-medium text-[#75613d] transition hover:bg-[#f8f3e9] disabled:cursor-not-allowed disabled:opacity-50"
@@ -561,7 +639,10 @@ export default function AdminDashboard() {
 
                             <button
                               type="button"
-                              onClick={() => setDeletingUser(user)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setDeletingUser(user);
+                              }}
                               disabled={loading}
                               className="rounded-lg border border-[#ead8d4] px-3 py-2 text-xs font-medium text-[#a24f43] transition hover:bg-[#fbefed] disabled:cursor-not-allowed disabled:opacity-50"
                             >
@@ -610,6 +691,97 @@ export default function AdminDashboard() {
         </footer>
       </div>
 
+      {/* Profile details modal */}
+      {profile && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setProfile(null);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="profile-title"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                {profile.profilePhotoUrl &&
+                /^https?:\/\//i.test(profile.profilePhotoUrl) ? (
+                  <img
+                    src={profile.profilePhotoUrl}
+                    alt={`${profile.name || "User"} profile`}
+                    className="h-16 w-16 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#efede6] text-xl font-semibold text-[#5d5a50]">
+                    {(profile.name || "?").charAt(0).toUpperCase()}
+                  </div>
+                )}
+
+                <div>
+                  <h2
+                    id="profile-title"
+                    className="text-xl font-semibold text-[#35332d]"
+                  >
+                    {profile.name || "Unnamed user"}
+                  </h2>
+                  <div className="mt-1">
+                    <RoleBadge role={profile.role} />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setProfile(null)}
+                aria-label="Close profile"
+                className="rounded-lg px-3 py-2 text-sm text-[#817d72] hover:bg-[#f5f2ec]"
+              >
+                ×
+              </button>
+            </div>
+
+            <dl className="grid gap-5 sm:grid-cols-2">
+              <ProfileField label="Email address" value={profile.email} />
+              <ProfileField label="Username" value={profile.username} />
+              <ProfileField label="Phone number" value={profile.phoneNumber} />
+              <ProfileField label="Location" value={profile.location} />
+              <ProfileField
+                label="Joined"
+                value={new Date(profile.createdAt).toLocaleString("en-SG", {
+                  timeZone: "Asia/Singapore",
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+              />
+              <ProfileField label="User ID" value={profile.id} />
+            </dl>
+
+            <div className="mt-7 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setProfile(null)}
+                className="rounded-lg border border-[#e5dfd2] px-4 py-2.5 text-sm font-medium text-[#5e5a50] hover:bg-[#f8f6f1]"
+              >
+                Close
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const account = users.find((item) => item.id === profile.id);
+                  if (account) void openUpdate(account);
+                }}
+                className="rounded-lg bg-[#75613d] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#5f4e32]"
+              >
+                Update
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Update account modal */}
       {editingUser && (
@@ -625,7 +797,7 @@ export default function AdminDashboard() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="edit-account-title"
-            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
           >
             <div className="mb-6 flex items-center justify-between">
               <div>
@@ -690,7 +862,80 @@ export default function AdminDashboard() {
                   className={inputClass}
                 />
               </div>
+              <div>
+                <label
+                  htmlFor="edit-account-username"
+                  className="mb-2 block text-sm font-medium text-[#4c4a42]"
+                >
+                  Username
+                </label>
+                <input
+                  id="edit-account-username"
+                  type="text"
+                  value={editUsername}
+                  onChange={(event) => setEditUsername(event.target.value)}
+                  maxLength={50}
+                  disabled={loading}
+                  className={inputClass}
+                />
+              </div>
 
+              <div>
+                <label
+                  htmlFor="edit-account-phone"
+                  className="mb-2 block text-sm font-medium text-[#4c4a42]"
+                >
+                  Phone number
+                </label>
+                <input
+                  id="edit-account-phone"
+                  type="tel"
+                  autoComplete="tel"
+                  value={editPhone}
+                  onChange={(event) => setEditPhone(event.target.value)}
+                  maxLength={30}
+                  disabled={loading}
+                  className={inputClass}
+                  placeholder="+65 1234 5678"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="edit-account-location"
+                  className="mb-2 block text-sm font-medium text-[#4c4a42]"
+                >
+                  Location
+                </label>
+                <input
+                  id="edit-account-location"
+                  type="text"
+                  value={editLocation}
+                  onChange={(event) => setEditLocation(event.target.value)}
+                  maxLength={100}
+                  disabled={loading}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="edit-account-photo"
+                  className="mb-2 block text-sm font-medium text-[#4c4a42]"
+                >
+                  Profile photo link
+                </label>
+                <input
+                  id="edit-account-photo"
+                  type="text"
+                  value={editPhotoUrl}
+                  onChange={(event) => setEditPhotoUrl(event.target.value)}
+                  maxLength={500}
+                  disabled={loading}
+                  className={inputClass}
+                  placeholder="https://example.com/photo.jpg"
+                />
+              </div>
               <div>
                 <label
                   htmlFor="edit-account-password"
@@ -795,6 +1040,22 @@ export default function AdminDashboard() {
   );
 }
 
+function ProfileField({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-[#999488]">{label}</dt>
+      <dd className="mt-1 break-words text-sm font-medium text-[#37362f]">
+        {value || "Not provided"}
+      </dd>
+    </div>
+  );
+}
 
 function StatCard({
   label,

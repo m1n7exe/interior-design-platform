@@ -4,10 +4,14 @@ import { CustomerFavouritesController } from "@/controller/CustomerFavouritesCon
 
 const controller = new CustomerFavouritesController();
 
-// GET: Retrieve customer favourites
-export async function GET() {
+// GET: Retrieve customer favourites (optionally filtered with ?q=term)
+export async function GET(request: NextRequest) {
   try {
-    const result = await controller.getFavourites();
+    const searchTerm = request.nextUrl.searchParams.get("q") ?? "";
+
+    const result = searchTerm.trim()
+      ? await controller.searchFavourites(searchTerm)
+      : await controller.getFavourites();
 
     if (result.error) {
       return NextResponse.json(
