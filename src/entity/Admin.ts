@@ -16,6 +16,8 @@ export class Admin extends User {
     return "ADMIN";
   }
 
+
+  
   // Check whether a user is an administrator
  public static async isAdmin(userId: string): Promise<boolean> {
   const supabase = createAdminClient();
@@ -236,4 +238,34 @@ export class Admin extends User {
 
     return await supabase.auth.admin.listUsers();
   }
+  
+  static async getStatuses(): Promise<Record<string, "ACTIVE" | "SUSPENDED">> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("users").select("id, status");
+
+  if (error) throw new Error(error.message);
+
+  return Object.fromEntries((data ?? []).map((row) => [row.id, row.status]));
+}
+
+static async setStatus(id: string, status: "ACTIVE" | "SUSPENDED") {
+  const supabase = createAdminClient();
+
+  const { error } = await supabase.from("users").update({ status }).eq("id", id);
+  if (error) return { error };
+
+  const { error: banError } = await supabase.auth.admin.updateUserById(id, {
+    ban_duration: status === "SUSPENDED" ? "876000h" : "none",
+  });
+
+  if (banError) {
+    await supabase
+      .from("users")
+      .update({ status: status === "SUSPENDED" ? "ACTIVE" : "SUSPENDED" })
+      .eq("id", id);
+    return { error: banError };
+  }
+
+  return { error: null };
+}
 }

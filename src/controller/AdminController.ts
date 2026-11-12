@@ -2,6 +2,8 @@ import "server-only";
 
 import { Admin } from "@/entity/Admin";
 
+type UserStatus = "ACTIVE" | "SUSPENDED";
+
 // Handles account creation
 export class AdminAccountController {
   public async createAccount(
@@ -42,12 +44,26 @@ export class AdminRetrievalController {
   public async getAccounts() {
     const { data, error } = await Admin.getAccounts();
 
+    // If the status lookup fails, still show the list (as ACTIVE) instead of breaking the page
+    let statuses: Record<string, UserStatus> = {};
+    if (!error) {
+      try {
+        statuses = await Admin.getStatuses();
+      } catch (statusError) {
+        console.error("Unable to load account statuses:", statusError);
+      }
+    }
+
     return {
       success: !error,
-      users: data?.users ?? [],
+      users: (data?.users ?? []).map((u) => ({
+        ...u,
+        status: statuses[u.id] ?? "ACTIVE",
+      })),
       error: error?.message ?? null,
     };
   }
+
   public async getAccount(id: string) {
     const { data, error } = await Admin.getAccount(id);
 
@@ -71,9 +87,20 @@ export class AdminUpdateController {
       phoneNumber?: string | null;
       location?: string | null;
       profilePhotoUrl?: string | null;
-    
     }
   ) {
     return await Admin.updateAccount(id, updates);
+  }
+}
+
+// Handles suspending and reactivating accounts
+export class AdminStatusController {
+  public async setStatus(id: string, status: UserStatus) {
+    const { error } = await Admin.setStatus(id, status);
+
+    return {
+      success: !error,
+      error: error?.message ?? null,
+    };
   }
 }
